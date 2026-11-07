@@ -1,0 +1,3 @@
+#!/bin/bash
+# Apple Studio Display brightness is not carried over from Omarchy.
+exit 1

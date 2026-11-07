@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# quattro:summary=Open a captive portal login page in the default browser
+# quattro:args=<url>
+url=${1:-}
+[[ $url =~ ^https?:// ]] || { echo "Usage: quattro-network-captive-portal <http(s) url>" >&2; exit 1; }
+exec quattro-launch-browser "$url"

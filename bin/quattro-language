@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# quattro:summary=Show or set the shell language
+# quattro:args=[<code> | list]
+# quattro:examples=quattro-language | quattro-language id | quattro-language list
+
+QUATTRO_PATH=${QUATTRO_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}
+locales_json="$QUATTRO_PATH/default/i18n/locales.json"
+language_file=${QUATTRO_LANGUAGE_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/quattro/language}
+
+known() { jq -e --arg code "$1" 'has($code)' "$locales_json" >/dev/null 2>&1; }
+
+current() {
+  local code=""
+  [[ -f $language_file ]] && code=$(head -n 1 "$language_file" | tr -d '[:space:]')
+  if [[ -n $code ]] && known "$code"; then echo "$code"; else echo en; fi
+}
+
+case "${1:-}" in
+  "") current ;;
+  list)
+    # native name, code, English name; English first, then by English name
+    jq -r 'to_entries
+           | map({code: .key, name: .value.name, englishName: .value.englishName})
+           | sort_by(if .code == "en" then "" else .englishName end)
+           | .[] | [.name, .code, .englishName] | @tsv' "$locales_json" ;;
+  *)
+    known "$1" || { echo "Usage: quattro-language [<code>|list]" >&2; exit 1; }
+    mkdir -p "$(dirname "$language_file")"
+    echo "$1" > "$language_file"
+    # The running shell notices the file change; apps already open keep their language. ;;
+esac

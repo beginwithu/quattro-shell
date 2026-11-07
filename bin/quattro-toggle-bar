@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# quattro:summary=Toggle bar visibility without killing the Quattro shell (on hides the bar, off shows it)
+# quattro:args=[toggle|on|off]
+# quattro:examples=quattro toggle bar | quattro toggle bar off | quattro toggle bar on
+
+quattro-toggle bar-off "${1:-toggle}"
+
+# The shell's watch on the toggles directory can miss flag changes that land in
+# quick succession, stranding the bar off screen until the shell restarts.
+# Nudge the bar to re-read the flag; quiet best-effort so the toggle still
+# works when the shell is not up.
+quattro-shell -q quattro.bar syncHidden

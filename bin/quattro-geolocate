@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# quattro:summary=Guess this network's city and coordinates from its public IP
+# Prints {"name":"City","latitude":0.0,"longitude":0.0}, the shape weather.json uses.
+# The only lookup the shell makes on its own; it sends your public IP to the
+# services below. Set a place with quattro-weather-location --set to avoid it.
+
+for url in https://ipwho.is/ https://ipapi.co/json/; do
+  out=$(curl -fsS --max-time 4 "$url" 2>/dev/null | jq -c '
+    select((.latitude | type) == "number" and (.longitude | type) == "number")
+    | { name: (.city // ""), latitude: .latitude, longitude: .longitude }' 2>/dev/null)
+  if [[ -n $out ]]; then
+    echo "$out"
+    exit 0
+  fi
+done
+exit 1

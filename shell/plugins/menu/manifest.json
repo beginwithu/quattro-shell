@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "quattro.menu",
+  "name": "Quattro menu",
+  "version": "1.0.0",
+  "author": "Quattro",
+  "description": "Quickshell-powered Quattro command menu",
+  "kinds": [
+    "menu",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Menu.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Quattro menu",
+    "description": "Launches the Quattro menu",
+    "category": "Compositor",
+    "allowMultiple": false
+  }
+}

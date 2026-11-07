@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# quattro:summary=Set or read the night light temperature with whichever backend is installed
+# quattro:args=<get | set <kelvin> | backend>
+#
+# Backends, first match wins: hyprsunset (Hyprland only), wlsunset, gammastep.
+# 6000 K and above counts as off.
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/quattro"
+STATE_FILE="$STATE_DIR/nightlight-temperature"
+IDENTITY=6000
+
+backend() {
+  if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprsunset >/dev/null 2>&1; then echo hyprsunset
+  elif command -v wlsunset >/dev/null 2>&1; then echo wlsunset
+  elif command -v gammastep >/dev/null 2>&1; then echo gammastep
+  else echo none
+  fi
+}
+
+detach() { setsid "$@" >/dev/null 2>&1 < /dev/null & }
+
+set_temperature() {
+  local temp=$1
+  [[ $temp =~ ^[0-9]+$ ]] || { echo "quattro-nightlight: not a temperature: $temp" >&2; exit 1; }
+  mkdir -p "$STATE_DIR"
+
+  case "$(backend)" in
+    hyprsunset)
+      pgrep -x hyprsunset >/dev/null || { detach hyprsunset; sleep 1; }
+      hyprctl hyprsunset temperature "$temp" >/dev/null
+      # Even daylight tints the screen, so off also restores the identity matrix.
+      (( temp >= IDENTITY )) && hyprctl hyprsunset identity >/dev/null
+      ;;
+    wlsunset)
+      pkill -x wlsunset 2>/dev/null
+      # Equal low and high temperatures hold one temperature all day.
+      (( temp < IDENTITY )) && detach wlsunset -t "$temp" -T "$temp" -l 0 -L 0
+      ;;
+    gammastep)
+      pkill -x gammastep 2>/dev/null
+      (( temp < IDENTITY )) && detach gammastep -O "$temp"
+      ;;
+    none)
+      echo "quattro-nightlight: install hyprsunset, wlsunset or gammastep" >&2
+      exit 2 ;;
+  esac
+  echo "$temp" > "$STATE_FILE"
+}
+
+get_temperature() {
+  case "$(backend)" in
+    hyprsunset)
+      pgrep -x hyprsunset >/dev/null || exit 1
+      hyprctl hyprsunset temperature 2>/dev/null | grep -Eo '[0-9]+' | head -n1 ;;
+    wlsunset|gammastep)
+      if pgrep -x "$(backend)" >/dev/null && [[ -r $STATE_FILE ]]; then cat "$STATE_FILE"
+      else echo 6500
+      fi ;;
+    none) exit 1 ;;
+  esac
+}
+
+case "${1:-}" in
+  get) get_temperature ;;
+  set) set_temperature "${2:-}" ;;
+  backend) backend ;;
+  *) echo "Usage: quattro-nightlight <get | set <kelvin> | backend>" >&2; exit 1 ;;
+esac

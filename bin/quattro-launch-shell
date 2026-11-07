@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# quattro:summary=Start the Quattro shell, keep its log in the journal, and relaunch it if it dies
+# quattro:hidden=true
+#
+# Run this from your compositor's autostart. It sets up the environment the
+# shell needs (QUATTRO_PATH, PATH with this checkout's bin/, ~/.config/quattro/env)
+# so the compositor does not have to.
+
+QUATTRO_PATH=${QUATTRO_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}
+export QUATTRO_PATH
+case ":$PATH:" in *":$QUATTRO_PATH/bin:"*) ;; *) export PATH="$QUATTRO_PATH/bin:$PATH" ;; esac
+
+# Per-user environment: QUATTRO_COMPOSITOR, QUATTRO_TERMINAL, QUATTRO_WORKSPACES_CMD, ...
+env_file="${XDG_CONFIG_HOME:-$HOME/.config}/quattro/env"
+if [[ -r $env_file ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$env_file"
+  set +a
+fi
+
+command -v quickshell >/dev/null 2>&1 || { echo "quattro-launch-shell: quickshell is not installed" >&2; exit 1; }
+
+# Bounded, timestamped logging in the journal when systemd is there.
+if command -v systemd-cat >/dev/null 2>&1; then
+  logger_cmd=(systemd-cat -t quattro-shell --)
+else
+  logger_cmd=()
+fi
+
+run_shell() {
+  QS_DISABLE_FILE_WATCHER=1 QS_NO_RELOAD_POPUP=1 \
+    "${logger_cmd[@]}" quickshell -n -p "$QUATTRO_PATH/shell" &
+  shell_pid=$!
+
+  local status
+  while true; do
+    wait "$shell_pid"
+    status=$?
+    kill -0 "$shell_pid" 2>/dev/null || break
+  done
+  shell_pid=""
+  return $status
+}
+
+# Qt leaves through _exit() when the Wayland connection fails, so Quickshell
+# cannot relaunch itself then. Supervise those deaths, but stop trying once the
+# compositor's socket is gone: the session is ending.
+compositor_alive() {
+  local socket=${WAYLAND_DISPLAY:-}
+  [[ -n $socket ]] || return 1
+  [[ $socket == /* ]] || socket="${XDG_RUNTIME_DIR:-/run/user/$UID}/$socket"
+  [[ -S $socket ]]
+}
+
+terminating=0
+shell_pid=""
+stop() {
+  terminating=1
+  [[ -n $shell_pid ]] && kill -TERM "$shell_pid" 2>/dev/null
+  return 0
+}
+trap stop HUP INT TERM
+
+attempts=0
+window_started=$SECONDS
+
+while true; do
+  (( terminating )) && exit 0
+  run_shell
+  status=$?
+  (( terminating )) && exit 0
+  (( status == 0 )) && exit 0
+  compositor_alive || exit 0
+
+  if (( SECONDS - window_started > 60 )); then
+    attempts=0
+    window_started=$SECONDS
+  fi
+  if (( ++attempts > 5 )); then
+    logger -t quattro-shell "Giving up on the Quattro shell after $attempts relaunches in under a minute." 2>/dev/null
+    exit 1
+  fi
+  logger -t quattro-shell "Quattro shell exited with status $status; relaunching." 2>/dev/null
+  sleep 1
+done

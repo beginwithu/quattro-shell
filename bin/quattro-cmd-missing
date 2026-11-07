@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# quattro:summary=Succeed when any named command is not installed
+for cmd in "$@"; do
+  command -v -- "$cmd" &>/dev/null || exit 0
+done
+exit 1

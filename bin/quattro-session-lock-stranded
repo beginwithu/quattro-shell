@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# quattro:summary=Exit 0 when the compositor holds a session lock nobody is serving
+# quattro:args=<shell pid>
+#
+# Exit 0: locked with no client (stranded). 1: not locked. 2: cannot tell yet.
+# Only Hyprland reveals its lock state; every other compositor reports "not locked"
+# so the lock screen does not wait on an answer that cannot come.
+
+[[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] || exit 1
+command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 || exit 1
+
+monitors=$(hyprctl -j monitors 2>/dev/null) || exit 2
+
+state=$(jq '
+  def blockers: .solitaryBlockedBy // [];
+  def readable: blockers | index("WORKSPACE") | not;
+
+  if   any(.[]; blockers | index("LOCK")) then 0
+  elif any(.[]; readable)                 then 1
+  else                                         2
+  end
+' <<<"$monitors" 2>/dev/null)
+
+case $state in
+  1) exit 1 ;;
+  0) ;;
+  *) exit 2 ;;
+esac
+
+# Locked: stranded only when no lock client (Quickshell or hyprlock) other than the caller is running.
+if pgrep -u "$UID" -x 'quickshell|qs|hyprlock' | grep -qvxF "${1:-0}"; then
+  exit 2
+fi
+exit 0

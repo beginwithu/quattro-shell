@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# quattro:summary=Pick a timezone and apply it with timedatectl
+command -v timedatectl >/dev/null 2>&1 || { echo "timedatectl not found" >&2; exit 1; }
+pick='
+  zones=$(timedatectl list-timezones)
+  if command -v fzf >/dev/null 2>&1; then
+    tz=$(printf "%s\n" "$zones" | fzf --prompt="Timezone > ")
+  else
+    read -rp "Timezone (e.g. Asia/Jakarta): " tz
+  fi
+  [[ -n $tz ]] && sudo timedatectl set-timezone "$tz" && echo "Timezone set to $tz"
+'
+if [[ -t 0 ]]; then
+  bash -c "$pick"
+else
+  exec quattro-terminal --hold bash -c "$pick"
+fi

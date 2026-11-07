@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# quattro:summary=Remove an application from the launcher
+# quattro:args=<desktop-id> [display name]
+#
+# A pacman-owned entry is uninstalled in a terminal after confirmation. A
+# desktop file in your home is deleted. Anything else is hidden with an override.
+
+id=${1:-}
+name=${2:-$id}
+[[ -n $id ]] || { echo "Usage: quattro-remove-launcher-entry <desktop-id> [name]" >&2; exit 1; }
+id=${id%.desktop}
+
+file=""
+for dir in "${XDG_DATA_HOME:-$HOME/.local/share}/applications" /usr/local/share/applications /usr/share/applications; do
+  [[ -f $dir/$id.desktop ]] && { file=$dir/$id.desktop; break; }
+done
+
+if [[ -n $file && $file == "$HOME"/* ]]; then
+  rm -f -- "$file"
+  quattro-notification-send "Removed $name" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+if [[ -n $file ]] && command -v pacman >/dev/null 2>&1 && package=$(pacman -Qqo "$file" 2>/dev/null | head -n1) && [[ -n $package ]]; then
+  quoted=$(printf '%q' "$package")
+  exec quattro-launch-floating-terminal-with-presentation "echo Uninstalling $quoted...; sudo pacman -Rns $quoted"
+fi
+
+# Not removable from here: shadow it with a hidden entry in your home, which the
+# launcher honours and which survives package updates.
+apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+mkdir -p "$apps"
+printf '[Desktop Entry]\nType=Application\nName=%s\nHidden=true\n' "$name" > "$apps/$id.desktop"

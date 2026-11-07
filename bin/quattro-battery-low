@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# quattro:summary=Send the low battery warning notification and run battery-low hooks.
+# quattro:args=<percentage>
+# quattro:hidden=true
+
+set -euo pipefail
+
+if (($# != 1)); then
+  echo "Usage: quattro-battery-low <percentage>" >&2
+  exit 1
+fi
+
+level=$1
+
+quattro-notification-send -g 󱐋 -u normal "$(quattro-i18n battery.lowTitle)" "$(quattro-i18n battery.lowBody "$level")" -i battery-caution -t 30000
+quattro-hook battery-low "$level"

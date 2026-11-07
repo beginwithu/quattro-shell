@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# quattro:summary=Open a file in $VISUAL/$EDITOR, or the default app for it
+editor=${VISUAL:-${EDITOR:-}}
+if [[ -n $editor ]]; then
+  exec setsid quattro-terminal $editor "$@"
+fi
+exec setsid xdg-open "$@" >/dev/null 2>&1

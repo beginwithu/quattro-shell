@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# quattro:summary=Run a terminal app in a terminal window
+exec setsid quattro-terminal "$@"

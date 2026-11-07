@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# quattro:summary=Run a command in a terminal and keep the window until a key is pressed
+# quattro:args=<command string or words>
+(( $# > 0 )) || exit 1
+if (( $# == 1 )); then
+  exec setsid quattro-terminal --hold bash -lc "$1"
+fi
+exec setsid quattro-terminal --hold "$@"

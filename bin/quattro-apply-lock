@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# quattro:summary=Install the PAM service the lock screen authenticates through (needs root)
+# quattro:args=[--remove]
+#
+# Writes /etc/pam.d/quattro-lock-password, built on your distro's own stack, and
+# /etc/pam.d/quattro-lock-fingerprint when fprintd has an enrolled finger.
+
+as_root() { if (( EUID == 0 )); then "$@"; else sudo "$@"; fi; }
+
+if [[ ${1:-} == --remove ]]; then
+  as_root rm -f /etc/pam.d/quattro-lock-password /etc/pam.d/quattro-lock-fingerprint
+  exit 0
+fi
+
+if [[ -f /etc/pam.d/system-auth ]]; then            # Arch, Fedora, openSUSE, Void ...
+  password_stack=$'auth       include      system-auth\naccount    include      system-auth'
+elif [[ -f /etc/pam.d/common-auth ]]; then          # Debian, Ubuntu and derivatives
+  password_stack=$'@include common-auth\n@include common-account'
+else
+  echo "quattro-apply-lock: could not find your distribution's PAM stack (system-auth or common-auth)." >&2
+  echo "Write /etc/pam.d/quattro-lock-password yourself; it only needs to authenticate the user." >&2
+  exit 1
+fi
+
+echo "Configuring lock screen password authentication..."
+printf '%s\n' "$password_stack" | as_root tee /etc/pam.d/quattro-lock-password >/dev/null || exit 1
+
+target_user=${SUDO_USER:-${USER:-$(id -un)}}
+if command -v fprintd-list >/dev/null 2>&1 && fprintd-list "$target_user" 2>&1 | grep -qE '^[[:space:]]*-[[:space:]]*#[0-9]+:'; then
+  echo "Configuring lock screen fingerprint authentication..."
+  printf 'auth       required     pam_fprintd.so\naccount    include      %s\n' \
+    "$([[ -f /etc/pam.d/system-auth ]] && echo system-auth || echo common-account)" |
+    as_root tee /etc/pam.d/quattro-lock-fingerprint >/dev/null
+else
+  as_root rm -f /etc/pam.d/quattro-lock-fingerprint
+fi
+echo "Lock screen authentication configured."

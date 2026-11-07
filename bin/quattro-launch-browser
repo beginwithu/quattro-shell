@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# quattro:summary=Open a URL in the default browser
+if [[ -n ${BROWSER:-} ]] && command -v "${BROWSER%% *}" >/dev/null 2>&1; then
+  exec setsid $BROWSER "$@" >/dev/null 2>&1
+fi
+exec setsid xdg-open "${1:-about:blank}" >/dev/null 2>&1

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# quattro:summary=Bring displays and keyboard backlight back after idle or sleep
+quattro-brightness-display on
+quattro-brightness-keyboard restore
+exit 0

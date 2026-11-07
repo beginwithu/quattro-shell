@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# quattro:summary=Toggle the night light through the running shell
+# quattro:args=[--status]
+
+status=$(quattro-shell nightlight status 2>/dev/null)
+
+case "${1:-}" in
+  --status) echo "$status" ;;
+  *)
+    if [[ $status == *'"enabled":true'* ]]; then quattro-shell -q nightlight disable
+    else quattro-shell -q nightlight enable
+    fi ;;
+esac

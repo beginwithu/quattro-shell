@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# quattro:summary=Switch the shell's color theme
+# quattro:args=<theme-name> | list
+#
+# Themes are folders in $QUATTRO_PATH/themes or ~/.config/quattro/themes with a
+# colors.toml (and optionally a shell.toml for per-surface roles).
+
+QUATTRO_PATH=${QUATTRO_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}
+state="${XDG_STATE_HOME:-$HOME/.local/state}/quattro/current/theme"
+dirs=("${XDG_CONFIG_HOME:-$HOME/.config}/quattro/themes" "$QUATTRO_PATH/themes")
+
+if [[ ${1:-} == list || -z ${1:-} ]]; then
+  for d in "${dirs[@]}"; do
+    for t in "$d"/*/colors.toml; do [[ -f $t ]] && basename "$(dirname "$t")"; done
+  done | sort -u
+  exit 0
+fi
+
+name=$1
+src=""
+for d in "${dirs[@]}"; do [[ -f $d/$name/colors.toml ]] && { src=$d/$name; break; }; done
+[[ -n $src ]] || { echo "quattro-theme-set: no theme named '$name'" >&2; exit 1; }
+
+mkdir -p "$state"
+rm -f "$state/colors.toml" "$state/shell.toml"
+cp "$src/colors.toml" "$state/colors.toml"
+[[ -f $src/shell.toml ]] && cp "$src/shell.toml" "$state/shell.toml"
+echo "$name" > "$state/name"
+
+# The shell watches these files; this makes the change immediate when it is running.
+colors=$(base64 -w0 "$state/colors.toml")
+shell=""
+[[ -f $state/shell.toml ]] && shell=$(base64 -w0 "$state/shell.toml")
+quattro-shell -q shell applyTheme "$colors" "$shell" >/dev/null 2>&1 || true

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# quattro:summary=Screenshot a region (or the whole output with --full) to ~/Pictures and the clipboard
+# quattro:args=[--full]
+
+command -v grim >/dev/null 2>&1 || { echo "quattro-capture-screenshot: grim is required" >&2; exit 1; }
+
+dir=${QUATTRO_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}
+mkdir -p "$dir"
+file="$dir/screenshot-$(date +%Y%m%d-%H%M%S).png"
+
+if [[ ${1:-} == --full ]]; then
+  grim "$file" || exit 1
+else
+  command -v slurp >/dev/null 2>&1 || { echo "quattro-capture-screenshot: slurp is required" >&2; exit 1; }
+  region=$(slurp) || exit 0
+  grim -g "$region" "$file" || exit 1
+fi
+
+command -v wl-copy >/dev/null 2>&1 && wl-copy < "$file"
+quattro-notification-send -g 󰄀 "Screenshot saved" "$file" >/dev/null 2>&1 || true

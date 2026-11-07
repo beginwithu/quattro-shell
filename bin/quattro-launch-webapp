@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# quattro:summary=Open a URL (no separate web app profile outside Omarchy)
+exec quattro-launch-browser "$@"

@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# quattro:summary=Read and change the bar's position, background and widget settings
+# quattro:args=position [top|bottom|left|right] | background [opaque|glassy|none|cycle] | get <id> <key> | set <id> <key> <value> [--json] | defaults | sync-glass
+# quattro:examples=quattro-bar position bottom | quattro-bar set quattro.clock format HH:mm | quattro-bar get quattro.clock format
+
+set -euo pipefail
+
+source quattro-shell-config
+
+usage() {
+  cat <<USAGE
+Usage: quattro-bar <command> [args...]
+
+  position [top|bottom|left|right]       Bar position; prints it when given none
+  background [opaque|glassy|none|cycle]  Bar background; prints it when given none
+  get <id> <key>                         Read a widget setting
+  set <id> <key> <value> [--json]        Write a widget setting (--json parses the value)
+  defaults                               Drop your changes and use the shipped layout
+  sync-glass                             No-op here; see the README for Hyprland blur
+USAGE
+}
+
+command=${1:-}
+shift || true
+
+case "$command" in
+  position)
+    if (( $# == 0 )); then
+      jq -r '.bar.position // "top"' "$(source_file)"
+    else
+      case "$1" in top|bottom|left|right) ;; *) fail "unknown position: $1" ;; esac
+      commit "$NORMALIZE | .bar.position = \$value" --arg value "$1"
+    fi ;;
+  background)
+    current=$(jq -r '.bar.background // "opaque"' "$(source_file)")
+    if (( $# == 0 )); then
+      echo "$current"
+    else
+      target=$1
+      if [[ $target == cycle ]]; then
+        case "$current" in none) target=glassy ;; glassy) target=opaque ;; *) target=none ;; esac
+      fi
+      case "$target" in opaque|glassy|none) ;; *) fail "unknown background: $target" ;; esac
+      commit "$NORMALIZE | .bar.background = \$value" --arg value "$target"
+    fi ;;
+  get)
+    (( $# == 2 )) || { usage >&2; exit 1; }
+    jq -r --arg id "$1" --arg key "$2" '
+      [ .bar.layout[]? | .[]? | select(type == "object" and .id == $id) | .[$key] ]
+      | map(select(. != null)) | first // empty' "$(source_file)" ;;
+  set)
+    (( $# >= 3 )) || { usage >&2; exit 1; }
+    id=$1 key=$2 value=$3
+    shift 3
+    if [[ ${1:-} == --json ]]; then
+      commit "$NORMALIZE
+        | .bar.layout |= with_entries(.value |= map(if type == \"object\" and .id == \$id then .[\$key] = (\$value | fromjson) else . end))" \
+        --arg id "$id" --arg key "$key" --arg value "$value"
+    else
+      commit "$NORMALIZE
+        | .bar.layout |= with_entries(.value |= map(if type == \"object\" and .id == \$id then .[\$key] = \$value else . end))" \
+        --arg id "$id" --arg key "$key" --arg value "$value"
+    fi ;;
+  defaults)
+    rm -f "$CONFIG_FILE"
+    refresh_shell_config ;;
+  sync-glass)
+    exit 0 ;;
+  ""|-h|--help)
+    usage ;;
+  *)
+    usage >&2
+    exit 1 ;;
+esac

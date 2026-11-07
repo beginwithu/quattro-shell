@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# quattro:summary=Log out, reboot or shut down
+# quattro:args=<logout|reboot|shutdown>
+
+case "${1:-}" in
+  logout)
+    # Ask the compositor first, since it knows how to end its own session cleanly.
+    case "${QUATTRO_COMPOSITOR:-}${HYPRLAND_INSTANCE_SIGNATURE:+hyprland}${SWAYSOCK:+sway}${NIRI_SOCKET:+niri}" in
+      *hyprland*) hyprctl dispatch exit >/dev/null 2>&1 && exit 0 ;;
+      *sway*) swaymsg exit >/dev/null 2>&1 && exit 0 ;;
+      *niri*) niri msg action quit --skip-confirmation >/dev/null 2>&1 && exit 0 ;;
+    esac
+    exec loginctl terminate-session "${XDG_SESSION_ID:-self}" ;;
+  reboot) exec systemctl reboot ;;
+  shutdown) exec systemctl poweroff ;;
+  *) echo "Usage: quattro-system <logout|reboot|shutdown>" >&2; exit 1 ;;
+esac

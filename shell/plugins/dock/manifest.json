@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "quattro.dock",
+  "name": "App Launcher",
+  "version": "1.0.0",
+  "author": "Quattro",
+  "description": "Searchable grid of installed applications",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Dock.qml"
+  }
+}

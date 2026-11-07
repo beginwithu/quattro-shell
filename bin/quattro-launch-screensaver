@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# quattro:summary=Screensaver hook; nothing is bundled, so idle goes straight to the lock
+# Put your own in ~/.config/quattro/hooks/screensaver and set idle.screensaver in shell.json.
+exec quattro-hook screensaver "$@"

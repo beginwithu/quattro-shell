@@ -1,0 +1,14 @@
+[Unit]
+Description=Lock Quattro before suspend
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# %h is the home directory; install.sh rewrites this to the real checkout path.
+ExecStart=@QUATTRO_PATH@/bin/quattro-sleep-lock-monitor
+Environment=QUATTRO_PATH=@QUATTRO_PATH@
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
