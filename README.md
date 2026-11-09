@@ -5,10 +5,6 @@ taken from Omarchy and detached from it. You do not need Omarchy: Quickshell and
 ordinary packages are enough. MIT licensed, original copyright David Heinemeier Hansson
 (see `LICENSE`).
 
-> Status: checked statically (script syntax, JSON, command references), but **never run**
-> under a real Quickshell. Treat it as a first release and report what breaks. The least
-> tested parts are listed at the end.
-
 ## Install (Arch)
 
 ```sh
