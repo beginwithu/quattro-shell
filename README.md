@@ -29,7 +29,9 @@ script sets up `QUATTRO_PATH` and `PATH`:
 ```
 
 Installer options: `--check` (dependency report only), `--sleep-lock` (lock before suspend),
-`--theme NAME`, `--uninstall`. Themes: `quattro-theme-set list` / `quattro-theme-set nord`.
+`--theme NAME`, `--bin-dir DIR`, `--uninstall`. Commands are linked into `/usr/local/bin` (sudo asks
+once); the checkout must stay where it is, because the links point into it. Run it as your normal
+user, not as root. `--bin-dir ~/.local/bin` keeps the old per-user behaviour. Themes: `quattro-theme-set list` / `quattro-theme-set nord`.
 
 Other distributions: `./install.sh --check` lists what is missing; the package names differ
 but the tools are the same. `quattro-apply-lock` builds the lock screen's PAM service on

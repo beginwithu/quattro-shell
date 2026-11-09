@@ -103,7 +103,7 @@ available_bands() {
           if (name == want) print $1
         }' |
       while read -r freq; do band_for_freq "$freq" || true; done
-  } | sort -u -g | tr '\n' ' ' | sed 's/ $//'
+  } | sort -u -g | paste -sd' '
 }
 
 print_status() {

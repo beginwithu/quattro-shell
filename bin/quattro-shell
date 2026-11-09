@@ -52,7 +52,11 @@ runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$UID}"
 display_socket=${WAYLAND_DISPLAY:-}
 [[ $display_socket == /* ]] || display_socket="$runtime_dir/$display_socket"
 if [[ -z ${WAYLAND_DISPLAY:-} || ! -e $display_socket ]]; then
-  socket=$(ls -t "$runtime_dir"/wayland-[0-9]* 2>/dev/null | grep -v '\.lock$' | head -n1)
+  socket=
+  for candidate in "$runtime_dir"/wayland-[0-9]*; do
+    [[ $candidate == *.lock || ! -e $candidate ]] && continue
+    [[ -z $socket || $candidate -nt $socket ]] && socket=$candidate
+  done
   [[ -n $socket ]] && export WAYLAND_DISPLAY=${socket##*/}
 fi
 

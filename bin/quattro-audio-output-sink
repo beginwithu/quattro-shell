@@ -81,7 +81,7 @@ if [[ $sink == "easyeffects_sink" ]]; then
   if [[ -z $linked ]]; then
     configured="$(sed -n 's/^outputDevice=//p' \
       "${XDG_CONFIG_HOME:-$HOME/.config}/easyeffects/db/easyeffectsrc" 2>/dev/null)"
-    if [[ -n $configured ]] && pactl list sinks short 2>/dev/null | awk '{print $2}' | grep -qxF -- "$configured"; then
+    if [[ -n $configured ]] && pactl list sinks short 2>/dev/null | want="$configured" awk '$2 == ENVIRON["want"] { found = 1 } END { exit !found }'; then
       linked="$configured"
     fi
   fi

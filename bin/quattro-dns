@@ -104,11 +104,11 @@ current_dns_provider() {
   local compact=""
 
   dns=$(networkmanager_global_dns)
-  if [[ -z $(printf '%s' "$dns" | tr -d '[:space:],') ]]; then
+  compact=${dns//[[:space:],]/}
+  if [[ -z $compact ]]; then
     dns=$(resolved_dns)
+    compact=${dns//[[:space:],]/}
   fi
-
-  compact=$(printf '%s' "$dns" | tr -d '[:space:],')
 
   if [[ -z $compact ]]; then
     echo "DHCP"

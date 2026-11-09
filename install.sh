@@ -9,12 +9,13 @@
 #   ./install.sh --check         only report missing dependencies
 #   ./install.sh --uninstall     remove the symlinks and units (your ~/.config/quattro stays)
 #   --theme NAME                 start theme (default: tokyo-night)
-#   --bin-dir DIR                where to link commands (default: ~/.local/bin)
+#   --bin-dir DIR                where to link commands (default: /usr/local/bin, via sudo)
 
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
-BIN_DIR="$HOME/.local/bin"
+BIN_DIR=/usr/local/bin
+LEGACY_BIN_DIR="$HOME/.local/bin"   # where earlier versions linked the commands
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/quattro"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/quattro"
 THEME=tokyo-night
@@ -42,9 +43,33 @@ while (( $# )); do
   shift
 done
 
+# Config and theme belong to the calling user, so root would set up the wrong home.
+if (( EUID == 0 && !CHECK_ONLY )); then
+  echo "Run this as your normal user, not root; it calls sudo only where it needs to." >&2
+  exit 1
+fi
+
 say() { printf '%s\n' "$*"; }
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+# Run a command that changes directory $1, through sudo unless we can write there.
+privileged() {
+  local dir=$1; shift
+  if [[ -w $dir ]]; then "$@"; else sudo "$@"; fi
+}
+
+# Remove the links in $1 that point into this checkout's bin/, in one call.
+remove_links() {
+  local dir=$1 c old=()
+  for c in "${LINKED[@]}"; do
+    if [[ -L $dir/$c && $(readlink -f "$dir/$c") == "$ROOT/bin/"* ]]; then old+=("$dir/$c"); fi
+  done
+  if (( ${#old[@]} )); then
+    privileged "$dir" rm -f -- "${old[@]}"
+    say "Removed ${#old[@]} link(s) from $dir"
+  fi
+}
 
 check_dependencies() {
   local missing_required=0
@@ -84,9 +109,8 @@ check_dependencies() {
 }
 
 if (( UNINSTALL )); then
-  for c in "${LINKED[@]}"; do
-    if [[ -L $BIN_DIR/$c && $(readlink -f "$BIN_DIR/$c") == "$ROOT/bin/"* ]]; then rm -f "$BIN_DIR/$c"; fi
-  done
+  remove_links "$BIN_DIR"
+  [[ $BIN_DIR == "$LEGACY_BIN_DIR" ]] || remove_links "$LEGACY_BIN_DIR"
   systemctl --user disable --now quattro-sleep-lock.service 2>/dev/null || true
   rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/quattro-sleep-lock.service"
   say "Removed links and units. Run ./bin/quattro-apply-lock --remove to drop the PAM files; your config in $CONFIG_DIR is untouched."
@@ -103,10 +127,13 @@ chmod +x "$ROOT"/bin/* 2>/dev/null || true
 
 say ""
 say "Linking commands into $BIN_DIR"
-mkdir -p "$BIN_DIR"
+targets=()
 for c in "${LINKED[@]}"; do
-  if [[ -e $ROOT/bin/$c ]]; then ln -sfn "$ROOT/bin/$c" "$BIN_DIR/$c"; fi
+  if [[ -e $ROOT/bin/$c ]]; then targets+=("$ROOT/bin/$c"); fi
 done
+privileged "$BIN_DIR" mkdir -p "$BIN_DIR"
+privileged "$BIN_DIR" ln -sf -t "$BIN_DIR" -- "${targets[@]}"
+[[ $BIN_DIR == "$LEGACY_BIN_DIR" ]] || remove_links "$LEGACY_BIN_DIR"
 case ":$PATH:" in *":$BIN_DIR:"*) ;; *) say "  note: $BIN_DIR is not on your PATH; add it to your shell profile." ;; esac
 
 say "Setting up $CONFIG_DIR"

@@ -52,7 +52,8 @@ get_temperature() {
   case "$(backend)" in
     hyprsunset)
       pgrep -x hyprsunset >/dev/null || exit 1
-      hyprctl hyprsunset temperature 2>/dev/null | grep -Eo '[0-9]+' | head -n1 ;;
+      reply=$(hyprctl hyprsunset temperature 2>/dev/null)
+      if [[ $reply =~ [0-9]+ ]]; then echo "${BASH_REMATCH[0]}"; fi ;;
     wlsunset|gammastep)
       if pgrep -x "$(backend)" >/dev/null && [[ -r $STATE_FILE ]]; then cat "$STATE_FILE"
       else echo 6500
