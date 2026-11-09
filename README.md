@@ -5,13 +5,9 @@ taken from Omarchy and detached from it. You do not need Omarchy: Quickshell and
 ordinary packages are enough. MIT licensed, original copyright David Heinemeier Hansson
 (see `LICENSE`).
 
-## Install (Arch)
+## Install
 
 ```sh
-sudo pacman -S quickshell jq curl wireplumber libpulse networkmanager bluez-utils upower \
-  power-profiles-daemon brightnessctl wl-clipboard wtype grim slurp iw libnotify wlsunset \
-  ttf-jetbrains-mono-nerd
-
 git clone <this folder> ~/quattro-shell   # or extract the archive
 cd ~/quattro-shell
 ./install.sh --lock                       # --lock installs the PAM files (sudo), once
@@ -24,13 +20,20 @@ script sets up `QUATTRO_PATH` and `PATH`:
 ~/quattro-shell/bin/quattro-launch-shell
 ```
 
-Installer options: `--check` (dependency report only), `--sleep-lock` (lock before suspend),
+The installer finds your package manager (pacman, apt, dnf, zypper or xbps), lists the missing
+packages and installs them after you confirm. Quickshell is not in every distribution's default
+repositories: on Fedora and Ubuntu it comes from a third-party repository, which the installer
+prints but does not add for you. Where the Nerd Font has no package, it downloads
+JetBrainsMono Nerd Font into `~/.local/share/fonts`. A package name that does not exist on your
+distribution is reported and skipped, not fatal.
+
+Installer options: `--check` (dependency report only), `--no-deps` (do not install anything),
+`-y`/`--yes` (do not ask before installing), `--sleep-lock` (lock before suspend),
 `--theme NAME`, `--bin-dir DIR`, `--uninstall`. Commands are linked into `/usr/local/bin` (sudo asks
 once); the checkout must stay where it is, because the links point into it. Run it as your normal
 user, not as root. `--bin-dir ~/.local/bin` keeps the old per-user behaviour. Themes: `quattro-theme-set list` / `quattro-theme-set nord`.
 
-Other distributions: `./install.sh --check` lists what is missing; the package names differ
-but the tools are the same. `quattro-apply-lock` builds the lock screen's PAM service on
+`quattro-apply-lock` builds the lock screen's PAM service on
 `system-auth` (Arch, Fedora, openSUSE, Void) or `common-auth` (Debian, Ubuntu).
 
 ## Compositor support

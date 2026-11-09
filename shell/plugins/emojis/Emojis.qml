@@ -15,6 +15,8 @@ Item {
   property var manifest: null
 
   property bool opened: false
+  // The 100 KB emoji list is read on first open, not when the shell starts.
+  property bool dataRequested: false
   property string filterText: ""
   property int selectedIndex: 0
   property bool cursorActive: false
@@ -44,6 +46,7 @@ Item {
   property int columns: Math.floor((cardWidth - contentMargin * 2) / cellWidth)
 
   function open(payloadJson) {
+    root.dataRequested = true
     root.opened = true
     root.filterText = ""
     root.selectedIndex = 0
@@ -155,7 +158,7 @@ Item {
   ListModel { id: displayModel }
 
   FileView {
-    path: root.quattroPath + "/shell/plugins/emojis/emojis.json"
+    path: root.dataRequested ? root.quattroPath + "/shell/plugins/emojis/emojis.json" : ""
     onLoaded: root.loadEmojis(text())
   }
   OverlayWindow {
