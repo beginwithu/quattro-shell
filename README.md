@@ -8,7 +8,7 @@ and a few ordinary packages are enough. MIT licensed, original copyright David H
 ## Install
 
 ```sh
-git clone <this folder> ~/quattro-shell   # or extract the archive
+git clone https://github.com/beginwithu/quattro-shell.git   # or extract the archive
 cd ~/quattro-shell
 ./install.sh --lock                       # --lock installs the PAM files (sudo), once
 ```
