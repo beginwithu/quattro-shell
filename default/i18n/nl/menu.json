@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Sneltoetsen"
   },
+  "keybindings": {
+    "label": "Sneltoetsen"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

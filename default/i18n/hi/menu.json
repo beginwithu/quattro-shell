@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "कीबोर्ड शॉर्टकट"
   },
+  "keybindings": {
+    "label": "कीबोर्ड शॉर्टकट"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

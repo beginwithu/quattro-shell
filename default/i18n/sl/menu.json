@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Bližnjice"
   },
+  "keybindings": {
+    "label": "Bližnjice"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

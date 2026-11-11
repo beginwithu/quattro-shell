@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Spartieji klavišai"
   },
+  "keybindings": {
+    "label": "Spartieji klavišai"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

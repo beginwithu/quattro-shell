@@ -347,6 +347,15 @@ Item {
       volatile: true,
       actionFor: function(value) { return "quattro-kernel set " + Util.shellQuote(value) }
     },
+    // Rows are `what it does\tkeys\t\tkeys\tkeys`: the keys show as the row's
+    // secondary text and are searchable. The list is read-only; selecting a
+    // row only closes the menu.
+    "keybindings": {
+      script: "quattro-menu-keybindings --list",
+      icon: "\uf11c",
+      volatile: true,
+      actionFor: function(value) { return ":" }
+    },
     // Rows carry a fourth field (the English name) so searching "danish"
     // finds the row labeled with its native name; mergeProviderRows turns
     // it into an alias.
@@ -457,7 +466,7 @@ Item {
         label: label,
         title: "",
         target: "",
-        description: "",
+        description: parts[4] || "",
         action: spec.actionFor(value),
         provider: "",
         aliases: [],

@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Billentyűk"
   },
+  "keybindings": {
+    "label": "Billentyűk"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

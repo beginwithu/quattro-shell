@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Raccourcis clavier"
   },
+  "keybindings": {
+    "label": "Raccourcis clavier"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

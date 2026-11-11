@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Atalhos"
   },
+  "keybindings": {
+    "label": "Atalhos"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

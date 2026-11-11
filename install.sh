@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Quattro shell installer. Works from the folder it sits in; nothing is copied
+# Quattro shell installer (Arch Linux and derivatives). Works from the folder it sits in; nothing is copied
 # elsewhere except small symlinks and per-user config.
 #
 #   ./install.sh                 install missing dependencies, link commands, set up config and a theme
@@ -28,6 +28,7 @@ DO_LOCK=0 DO_SLEEP=0 CHECK_ONLY=0 UNINSTALL=0 NO_DEPS=0 ASSUME_YES=0
 LINKED=(quattro-shell quattro-menu quattro-launch-shell quattro-restart-shell quattro-bar
   quattro-theme-set quattro-language quattro-audio-output-volume quattro-brightness-display
   quattro-brightness-keyboard quattro-toggle-nightlight quattro-capture-screenshot
+  quattro-capture-screenrecording quattro-capture-text quattro-capture-qr
   quattro-apply-lock quattro-system-lock quattro-system quattro-compositor quattro-osd
   quattro-notification-send quattro-weather-location)
 
@@ -75,41 +76,44 @@ remove_links() {
   fi
 }
 
-# tier|command|used for|pacman|apt|dnf|zypper|xbps
-# req and rec are installed automatically, opt is only reported. A package name
-# that does not exist on a distribution is reported when it fails, not fatal.
+# tier|command|used for|package
+# req and rec are installed automatically, opt is only reported. Every package
+# is in the official Arch repositories, so no AUR helper is needed.
 DEPS=(
-  "req|quickshell|the shell itself|quickshell|quickshell|quickshell|quickshell|quickshell"
-  "req|jq|JSON handling|jq|jq|jq|jq|jq"
-  "req|curl|weather and geolocation|curl|curl|curl|curl|curl"
-  "rec|wpctl|audio panel and volume keys|wireplumber|wireplumber|wireplumber|wireplumber|wireplumber"
-  "rec|pactl|audio device switching|libpulse|pulseaudio-utils|pulseaudio-utils|pulseaudio-utils|pulseaudio-utils"
-  "rec|nmcli|network panel|networkmanager|network-manager|NetworkManager|NetworkManager|NetworkManager"
-  "rec|bluetoothctl|bluetooth panel|bluez-utils|bluez|bluez|bluez|bluez"
-  "rec|upower|battery|upower|upower|upower|upower|upower"
-  "rec|powerprofilesctl|power profiles|power-profiles-daemon|power-profiles-daemon|power-profiles-daemon|power-profiles-daemon|power-profiles-daemon"
-  "rec|brightnessctl|screen and keyboard brightness|brightnessctl|brightnessctl|brightnessctl|brightnessctl|brightnessctl"
-  "rec|wl-copy|clipboard history|wl-clipboard|wl-clipboard|wl-clipboard|wl-clipboard|wl-clipboard"
-  "rec|wtype|pasting from clipboard and emoji pickers|wtype|wtype|wtype|wtype|wtype"
-  "rec|grim|screenshots|grim|grim|grim|grim|grim"
-  "rec|slurp|region screenshots|slurp|slurp|slurp|slurp|slurp"
-  "rec|iw|Wi-Fi band switching|iw|iw|iw|iw|iw"
-  "rec|notify-send|scripts that raise notifications|libnotify|libnotify-bin|libnotify|libnotify-tools|libnotify"
-  "rec|socat|fast IPC for key bindings|socat|socat|socat|socat|socat"
-  "opt|ddcutil|external monitor brightness|ddcutil|ddcutil|ddcutil|ddcutil|ddcutil"
-  "opt|magick|bar text color from the background|imagemagick|imagemagick|ImageMagick|ImageMagick|ImageMagick"
-  "opt|fprintd-list|fingerprint unlock|fprintd|fprintd|fprintd|fprintd|fprintd"
+  "req|quickshell|the shell itself|quickshell"
+  "req|jq|JSON handling|jq"
+  "req|curl|weather and geolocation|curl"
+  "rec|wpctl|audio panel and volume keys|wireplumber"
+  "rec|pactl|audio device switching|libpulse"
+  "rec|nmcli|network panel|networkmanager"
+  "rec|bluetoothctl|bluetooth panel|bluez-utils"
+  "rec|upower|battery|upower"
+  "rec|powerprofilesctl|power profiles|power-profiles-daemon"
+  "rec|brightnessctl|screen and keyboard brightness|brightnessctl"
+  "rec|wl-copy|clipboard history|wl-clipboard"
+  "rec|wtype|pasting from clipboard and emoji pickers|wtype"
+  "rec|grim|screenshots|grim"
+  "rec|slurp|region screenshots|slurp"
+  "rec|iw|Wi-Fi band switching|iw"
+  "rec|notify-send|scripts that raise notifications|libnotify"
+  "rec|socat|fast IPC for key bindings|socat"
+  "opt|ddcutil|external monitor brightness|ddcutil"
+  "opt|magick|bar text color from the background|imagemagick"
+  "opt|fprintd-list|fingerprint unlock|fprintd"
+  "opt|wf-recorder|screen recording|wf-recorder"
+  "opt|tesseract|text capture (OCR)|tesseract tesseract-data-eng"
+  "opt|zbarimg|QR code capture|zbar"
+  "opt|hyprpicker|color picker|hyprpicker"
 )
-NERD_FONT_PKG=ttf-jetbrains-mono-nerd   # pacman only; elsewhere the font is downloaded
-NERD_FONT_URL=https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz
+NIGHTLIGHT_PKG=wlsunset
+FONT_PKG=ttf-jetbrains-mono-nerd
 
-PM="" col=0
-for pm in pacman apt-get dnf zypper xbps-install; do
-  if have "$pm"; then PM=$pm; break; fi
-done
-case $PM in
-  pacman) col=3 ;; apt-get) col=4 ;; dnf) col=5 ;; zypper) col=6 ;; xbps-install) col=7 ;;
-esac
+# Arch and its derivatives (EndeavourOS, CachyOS, Manjaro, ...) report arch in ID or ID_LIKE.
+is_arch() {
+  local ids
+  ids=$(. /etc/os-release 2>/dev/null && echo " ${ID:-} ${ID_LIKE:-} ")
+  have pacman && [[ $ids == *" arch "* ]]
+}
 
 missing_req=() missing_pkgs=() need_nightlight=0 need_font=0
 
@@ -118,19 +122,18 @@ scan_dependencies() {
   missing_req=() missing_pkgs=() need_nightlight=0 need_font=0
   for row in "${DEPS[@]}"; do
     IFS='|' read -ra f <<<"$row"
-    have "${f[1]}" && continue
-    [[ ${f[0]} == req ]] && missing_req+=("${f[1]}")
-    [[ ${f[0]} != opt && -n $PM ]] && missing_pkgs+=("${f[col]}")
+    if have "${f[1]}"; then continue; fi
+    if [[ ${f[0]} == req ]]; then missing_req+=("${f[1]}"); fi
+    if [[ ${f[0]} != opt ]]; then missing_pkgs+=("${f[3]}"); fi
   done
   if ! have hyprsunset && ! have wlsunset && ! have gammastep; then
     need_nightlight=1
-    [[ -n $PM ]] && missing_pkgs+=(wlsunset)
+    missing_pkgs+=("$NIGHTLIGHT_PKG")
   fi
   if [[ $(fc-list : family 2>/dev/null) != *[Nn]erd* ]]; then
     need_font=1
-    [[ $PM == pacman ]] && missing_pkgs+=("$NERD_FONT_PKG")
+    missing_pkgs+=("$FONT_PKG")
   fi
-  # Unique, in a stable order.
   if (( ${#missing_pkgs[@]} )); then
     mapfile -t missing_pkgs < <(printf '%s\n' "${missing_pkgs[@]}" | sort -u)
   fi
@@ -149,12 +152,12 @@ report_dependencies() {
       IFS='|' read -ra f <<<"$row"
       [[ ${f[0]} == "$tier" ]] || continue
       if have "${f[1]}"; then say "  ok       ${f[1]}"
-      else say "  missing  ${f[1]}  (${f[2]}${PM:+; package: ${f[col]}})"; fi
+      else say "  missing  ${f[1]}  (${f[2]}; package: ${f[3]})"; fi
     done
     if [[ $tier == rec ]]; then
-      if (( need_nightlight )); then say "  missing  hyprsunset | wlsunset | gammastep  (night light)"
+      if (( need_nightlight )); then say "  missing  hyprsunset | wlsunset | gammastep  (night light; package: $NIGHTLIGHT_PKG)"
       else say "  ok       night light backend"; fi
-      if (( need_font )); then say "  missing  a Nerd Font  (icons)"
+      if (( need_font )); then say "  missing  a Nerd Font  (icons; package: $FONT_PKG)"
       else say "  ok       a Nerd Font"; fi
     fi
   done
@@ -168,76 +171,40 @@ confirm() {
   [[ -z $reply || $reply == [Yy]* ]]
 }
 
-pm_install() {
-  case $PM in
-    pacman) sudo pacman -S --needed --noconfirm "$@" ;;
-    apt-get) sudo apt-get install -y "$@" ;;
-    dnf) sudo dnf install -y "$@" ;;
-    zypper) sudo zypper --non-interactive install "$@" ;;
-    xbps-install) sudo xbps-install -y "$@" ;;
-  esac
-}
-
-# One transaction first. If any name is unknown the manager refuses the whole
-# set, so fall back to one package at a time and report only the ones that fail.
+# One transaction first. If any package is unknown pacman refuses the whole set,
+# so fall back to one package at a time and report only the ones that fail.
 install_packages() {
   local pkg failed=()
-  if [[ $PM == apt-get ]]; then sudo apt-get update || say "apt-get update failed; continuing."; fi
   say "Installing: ${missing_pkgs[*]}"
-  if pm_install "${missing_pkgs[@]}"; then return 0; fi
+  if sudo pacman -S --needed --noconfirm "${missing_pkgs[@]}"; then return 0; fi
   say "The combined install failed; trying one package at a time."
   for pkg in "${missing_pkgs[@]}"; do
-    pm_install "$pkg" || failed+=("$pkg")
+    sudo pacman -S --needed --noconfirm "$pkg" || failed+=("$pkg")
   done
   if (( ${#failed[@]} )); then
     say "Could not install: ${failed[*]}"
-    if [[ $PM == pacman ]]; then say "If downloads fail with 404, run 'sudo pacman -Syu' first and try again."; fi
+    say "If downloads fail with 404, run 'sudo pacman -Syu' first and try again."
   fi
   return 0
 }
 
-install_nerd_font() {
-  local dir="${XDG_DATA_HOME:-$HOME/.local/share}/fonts/JetBrainsMonoNerd"
-  if ! have curl || ! have tar; then say "Cannot download the Nerd Font: curl and tar are needed."; return 0; fi
-  say "Downloading JetBrainsMono Nerd Font to $dir"
-  mkdir -p "$dir"
-  if curl -fsSL "$NERD_FONT_URL" | tar -xJ -C "$dir"; then
-    if have fc-cache; then fc-cache -f "$dir"; fi
-  else
-    say "The font download failed (check the network, and that xz is installed)."
-  fi
-}
-
-quickshell_hint() {
-  say "quickshell is still missing:"
-  case $PM in
-    pacman) say "  sudo pacman -S quickshell   (run 'sudo pacman -Syu' first if it is not found)" ;;
-    apt-get) say "  Debian: quickshell is in testing and unstable."
-             say "  Ubuntu: sudo add-apt-repository ppa:avengemedia/danklinux, then sudo apt install quickshell" ;;
-    dnf) say "  sudo dnf copr enable errornointernet/quickshell, then sudo dnf install quickshell" ;;
-    zypper) say "  Packaged on the Open Build Service in home:AvengeMedia:danklinux." ;;
-    *) say "  See the installation guide at https://quickshell.org" ;;
-  esac
-}
-
 install_dependencies() {
-  (( ${#missing_pkgs[@]} || need_font )) || return 0
+  (( ${#missing_pkgs[@]} )) || return 0
   say ""
-  if [[ -z $PM ]]; then
-    say "No supported package manager found (pacman, apt, dnf, zypper, xbps); install the missing items above by hand."
-  elif (( ${#missing_pkgs[@]} )); then
-    if ! have sudo; then
-      say "sudo is needed to install: ${missing_pkgs[*]}"
-    elif confirm "Install ${missing_pkgs[*]} with $PM?"; then
-      install_packages
-    else
-      say "Skipped. Re-run with --yes to install without asking, or install them yourself."
-    fi
-  fi
-  if (( need_font )) && [[ $PM != pacman ]] && confirm "Download JetBrainsMono Nerd Font?"; then
-    install_nerd_font
+  if ! have sudo; then
+    say "sudo is needed to install: ${missing_pkgs[*]}"
+  elif confirm "Install ${missing_pkgs[*]} with pacman?"; then
+    install_packages
+  else
+    say "Skipped. Re-run with --yes to install without asking, or install them yourself."
   fi
 }
+
+# Quattro supports Arch and its derivatives only.
+if (( !UNINSTALL )) && ! is_arch; then
+  echo "This installer supports Arch Linux and its derivatives only (pacman is required)." >&2
+  exit 1
+fi
 
 if (( UNINSTALL )); then
   remove_links "$BIN_DIR"
@@ -260,7 +227,9 @@ fi
 if (( ${#missing_req[@]} )); then
   say ""
   say "Still missing: ${missing_req[*]}"
-  if [[ " ${missing_req[*]} " == *" quickshell "* ]]; then quickshell_hint; fi
+  if [[ " ${missing_req[*]} " == *" quickshell "* ]]; then
+    say "quickshell is in the extra repository: run 'sudo pacman -Syu', then 'sudo pacman -S quickshell'."
+  fi
   say "Install the missing required packages and run this again."
   exit 1
 fi

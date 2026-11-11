@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "ปุ่มลัด"
   },
+  "keybindings": {
+    "label": "ปุ่มลัด"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# quattro:summary=Read a QR code or barcode in a screen region and copy its contents to the clipboard
+
+for tool in grim slurp zbarimg wl-copy; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "quattro-capture-qr: $tool is required" >&2; exit 1; }
+done
+
+region=$(slurp) || exit 0
+image=$(mktemp --suffix=.png) || exit 1
+trap 'rm -f "$image"' EXIT
+
+grim -g "$region" "$image" || exit 1
+# zbarimg exits 4 when the image holds no code.
+content=$(zbarimg --raw -q "$image" 2>/dev/null)
+
+if [[ -z $content ]]; then
+  quattro-notification-send -g 󰐲 "No QR code found" >/dev/null 2>&1 || true
+  exit 1
+fi
+
+printf '%s' "$content" | wl-copy
+quattro-notification-send -g 󰐲 "QR code copied" "${content:0:120}" >/dev/null 2>&1 || true

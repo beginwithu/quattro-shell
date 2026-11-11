@@ -20,12 +20,10 @@ script sets up `QUATTRO_PATH` and `PATH`:
 ~/quattro-shell/bin/quattro-launch-shell
 ```
 
-The installer finds your package manager (pacman, apt, dnf, zypper or xbps), lists the missing
-packages and installs them after you confirm. Quickshell is not in every distribution's default
-repositories: on Fedora and Ubuntu it comes from a third-party repository, which the installer
-prints but does not add for you. Where the Nerd Font has no package, it downloads
-JetBrainsMono Nerd Font into `~/.local/share/fonts`. A package name that does not exist on your
-distribution is reported and skipped, not fatal.
+The installer supports Arch Linux and its derivatives (EndeavourOS, CachyOS, Manjaro and the
+like) and refuses to run elsewhere. It lists the missing packages, all from the official
+repositories, and installs them with pacman after you confirm. If pacman cannot find a package,
+run `sudo pacman -Syu` and try again; the installer never runs a partial `-Sy`.
 
 Installer options: `--check` (dependency report only), `--no-deps` (do not install anything),
 `-y`/`--yes` (do not ask before installing), `--sleep-lock` (lock before suspend),
@@ -50,6 +48,22 @@ Hyprland). Only these features depend on the compositor:
 | Global shortcuts (`GlobalShortcut`) | yes | no | no | no |
 | Corner radius and gaps read from the compositor | yes | set in `shell.toml` | same | same |
 
+On Hyprland, `default/hypr` holds the key bindings, window rules and settings. It is written for
+Hyprland's Lua configuration. In `~/.config/hypr/hyprland.lua`:
+
+```lua
+dofile(os.getenv("HOME") .. "/quattro-shell/default/hypr/bootstrap.lua")
+require("default.hypr.quattro")
+```
+
+The checkout is found from `QUATTRO_PATH`, or from where `bootstrap.lua` was loaded. Omarchy's
+bindings for things Quattro has no command for are left out: window popping, titlebars, dictation,
+lid and clamshell handling, workspace layouts, per-monitor workspaces, reminders, and its own
+set of preinstalled apps. Add your own after those two lines with
+`o.bind("SUPER + X", "Description", "command")`. Floating rules for TUIs match the app ids
+`org.quattro.*`, which `quattro-launch-tui` does not set yet, so they stay inert.
+`SUPER + K` opens a searchable list of the bindings Hyprland has loaded (Menu, Keybindings).
+
 Outside Hyprland, bind keys in your compositor's own config to these commands:
 
 ```sh
@@ -60,6 +74,7 @@ quattro-audio-output-volume raise|lower|mute-toggle
 quattro-brightness-display +5%                # or 5%-
 quattro-toggle-nightlight
 quattro-system-lock
+quattro-capture-screenshot [--full]           # also -screenrecording [--with-desktop-audio], -text (OCR), -qr
 ```
 
 For dwl, for example, add `SHCMD("quattro-menu")` bindings to `config.h` and start the shell with
@@ -112,8 +127,12 @@ Replaced to make it universal:
 - `Commons/Compositor.qml` and `bin/quattro-compositor` are the single place that knows
   which compositor is running.
 - The Hyprland-bound dock became a plain launcher (`AppGrid` only).
-- The menu was rewritten (`default/quattro/quattro-menu.jsonc`): Apps, Trigger, Appearance,
-  Setup, Restart, System.
+- The menu was rewritten (`default/quattro/quattro-menu.jsonc`): Apps, Trigger (clipboard, emoji,
+  capture, toggles, share), Appearance (theme, bar), Setup (language, DNS, config), Restart, System.
+  Entries keep Omarchy's ids, so the translations in `default/i18n` apply. Screen recording, text
+  and QR capture, the color picker and LocalSend appear only when `wf-recorder`, `tesseract`,
+  `zbarimg`, `hyprpicker` or `localsend` is installed. Themes in `~/.config/quattro/themes` are
+  not listed in the menu; use `quattro-theme-set NAME` or add rows in your extensions file.
 - Weather location: `geo.omarchy.org` was replaced by `quattro-geolocate` (ipwho.is, then
   ipapi.co), which sends your public IP. Set a place by hand with
   `quattro-weather-location --set Name lat,lon` to avoid it.

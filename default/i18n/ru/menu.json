@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Сочетания клавиш"
   },
+  "keybindings": {
+    "label": "Сочетания клавиш"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

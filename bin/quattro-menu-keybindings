@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# quattro:summary=List the key bindings Hyprland has loaded, in the menu
+# quattro:args=[--list]
+
+if [[ ${1:-} != --list ]]; then
+  exec quattro-menu toggle keybindings
+fi
+
+# One row per described binding, as the menu's provider format expects:
+# label, value, current, search term, description = what it does, keys, -, keys, keys.
+command -v hyprctl >/dev/null 2>&1 || exit 0
+
+hyprctl binds 2>/dev/null | awk '
+  function reset() { modmask = 0; key = ""; desc = ""; submap = ""; hasdesc = 0 }
+  function flush(   m, keys) {
+    if (key != "" && hasdesc && desc != "" && submap == "") {
+      m = modmask + 0
+      keys = ""
+      if (int(m / 64) % 2) keys = keys "SUPER + "
+      if (int(m / 4) % 2) keys = keys "CTRL + "
+      if (int(m / 8) % 2) keys = keys "ALT + "
+      if (m % 2) keys = keys "SHIFT + "
+      keys = keys key
+      if (!((keys SUBSEP desc) in seen)) {
+        seen[keys SUBSEP desc] = 1
+        printf "%s\t%s\t\t%s\t%s\n", desc, keys, keys, keys
+      }
+    }
+    reset()
+  }
+  BEGIN { reset() }
+  $0 == "bind" { flush(); next }
+  {
+    line = $0
+    sub(/^[ \t]+/, "", line)
+    i = index(line, ":")
+    if (!i) next
+    name = substr(line, 1, i - 1)
+    val = substr(line, i + 1)
+    sub(/^ /, "", val)
+    gsub(/\t/, " ", val)
+    if (name == "modmask") modmask = val
+    else if (name == "key") key = val
+    else if (name == "description") desc = val
+    else if (name == "submap") submap = val
+    else if (name == "has_description") hasdesc = (val == "true")
+  }
+  END { flush() }
+'

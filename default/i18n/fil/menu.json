@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Mga Keybinding"
   },
+  "keybindings": {
+    "label": "Mga Keybinding"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

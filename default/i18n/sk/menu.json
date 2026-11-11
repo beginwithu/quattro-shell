@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Klávesové skratky"
   },
+  "keybindings": {
+    "label": "Klávesové skratky"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

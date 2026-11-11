@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # quattro:summary=Switch the shell's color theme
-# quattro:args=<theme-name> | list
+# quattro:args=<theme-name> | list | current
 #
 # Themes are folders in $QUATTRO_PATH/themes or ~/.config/quattro/themes with a
 # colors.toml (and optionally a shell.toml for per-surface roles).
@@ -9,6 +9,11 @@
 QUATTRO_PATH=${QUATTRO_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}
 state="${XDG_STATE_HOME:-$HOME/.local/state}/quattro/current/theme"
 dirs=("${XDG_CONFIG_HOME:-$HOME/.config}/quattro/themes" "$QUATTRO_PATH/themes")
+
+if [[ ${1:-} == current ]]; then
+  cat "$state/name" 2>/dev/null
+  exit 0
+fi
 
 if [[ ${1:-} == list || -z ${1:-} ]]; then
   for d in "${dirs[@]}"; do

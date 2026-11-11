@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# quattro:summary=Record a screen region to ~/Videos with wf-recorder; run again, or use --stop-recording, to stop
+# quattro:args=[--with-desktop-audio] | --stop-recording | --status
+# quattro:examples=quattro capture screenrecording | quattro capture screenrecording --with-desktop-audio
+
+case ${1:-} in
+  --status) pgrep -x wf-recorder >/dev/null; exit ;;
+  --stop-recording) pkill -INT -x wf-recorder; exit 0 ;;
+esac
+
+# Already recording: a second call stops it, so one key binding does both.
+if pgrep -x wf-recorder >/dev/null; then
+  pkill -INT -x wf-recorder
+  exit 0
+fi
+
+for tool in wf-recorder slurp; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "quattro-capture-screenrecording: $tool is required" >&2; exit 1; }
+done
+
+audio=()
+if [[ ${1:-} == --with-desktop-audio ]]; then
+  command -v pactl >/dev/null 2>&1 || { echo "quattro-capture-screenrecording: pactl is required for audio" >&2; exit 1; }
+  sink=$(pactl get-default-sink) || exit 1
+  audio=(--audio="$sink.monitor")
+fi
+
+region=$(slurp) || exit 0
+dir=${QUATTRO_SCREENRECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}
+mkdir -p "$dir"
+file="$dir/screenrecording-$(date +%Y%m%d-%H%M%S).mp4"
+
+# Detached from the caller (a menu row or key binding) so it outlives it. The
+# notification goes out once wf-recorder has finished writing the file.
+setsid -f bash -c '
+  file=$1; shift
+  wf-recorder -g "$@" -f "$file" >/dev/null 2>&1
+  [[ -s $file ]] && quattro-notification-send -g  "Recording saved" "$file" >/dev/null 2>&1
+' _ "$file" "$region" "${audio[@]}"

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# quattro:summary=Read the text in a screen region (OCR) and copy it to the clipboard
+
+for tool in grim slurp tesseract wl-copy; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "quattro-capture-text: $tool is required" >&2; exit 1; }
+done
+
+region=$(slurp) || exit 0
+text=$(grim -g "$region" - | tesseract stdin stdout 2>/dev/null) || exit 1
+
+if [[ -z ${text//[[:space:]]/} ]]; then
+  quattro-notification-send -g 󰴑 "No text found" >/dev/null 2>&1 || true
+  exit 1
+fi
+
+printf '%s' "$text" | wl-copy
+quattro-notification-send -g 󰴑 "Text copied" "${text:0:120}" >/dev/null 2>&1 || true

@@ -56,6 +56,9 @@
   "learn.keybindings": {
     "label": "Клавишни комбинации"
   },
+  "keybindings": {
+    "label": "Клавишни комбинации"
+  },
   "learn.quattro": {
     "label": "Quattro"
   },

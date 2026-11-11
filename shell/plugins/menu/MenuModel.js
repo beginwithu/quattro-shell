@@ -437,6 +437,7 @@ var GUARD_READERS = [
   "quattro-hyprland-window-transparency",
   "quattro-hyprland-workspace-layout-default",
   "quattro-shell notifications isDnd",
+  "quattro-theme-set current",
   "quattro-toggle-nightlight --status"
 ]
 
