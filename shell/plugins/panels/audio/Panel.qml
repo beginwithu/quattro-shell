@@ -90,10 +90,7 @@ Panel {
     return Model.isAudioSource(node)
   }
 
-  property var cachedAudioSinks: []
-  property var cachedAudioSources: []
-
-  readonly property var rawAudioSinks: {
+  readonly property var audioSinks: {
     var list = []
     for (var i = 0; i < candidateSinks.length; i++)
       if (sinkAvailable(candidateSinks[i])) list.push(candidateSinks[i])
@@ -101,14 +98,11 @@ Panel {
     return list
   }
 
-  readonly property var rawAudioSources: {
+  readonly property var audioSources: {
     var list = candidateSources.slice()
     if (source && list.indexOf(source) < 0) list.unshift(source)
     return list
   }
-
-  readonly property var audioSinks: rawAudioSinks.length > 0 ? rawAudioSinks : cachedAudioSinks
-  readonly property var audioSources: rawAudioSources.length > 0 ? rawAudioSources : cachedAudioSources
 
   readonly property var audioStreams: {
     var list = []
@@ -207,9 +201,6 @@ Panel {
   readonly property bool inputMuted: inputViaWpctl ? UntypedInput.muted : (source && source.audio ? source.audio.muted : false)
   readonly property var inputPeakNode: inputViaWpctl ? null : source
   readonly property bool inputLevelShown: !!inputPeakNode
-
-  onRawAudioSinksChanged: if (rawAudioSinks.length > 0) cachedAudioSinks = rawAudioSinks
-  onRawAudioSourcesChanged: if (rawAudioSources.length > 0) cachedAudioSources = rawAudioSources
 
   // Single cursor model shared by keyboard and mouse. Sections:
   //   "output"  — output slider + sink device list
@@ -314,17 +305,6 @@ Panel {
     selectedIndex = -1
   }
 
-  function moveSection(delta) {
-    var sections = visibleSections
-    if (sections.length === 0) return
-    var current = sections.indexOf(focusSection)
-    if (current < 0) current = delta > 0 ? -1 : 0
-    var next = (current + delta + sections.length) % sections.length
-    focusSection = sections[next]
-    selectedIndex = sectionHasSlider(focusSection) ? -1 : 0
-    cursorActive = true
-  }
-
   // Adjust the slider associated with the focused section. Output and
   // input sliders are real volume controls; on stream rows h/l adjusts
   // that stream's volume (so keyboard parity with the inline slider).
@@ -383,6 +363,8 @@ Panel {
   onAudioSinksChanged: scheduleDisplayAudioModelRefresh()
   onAudioSourcesChanged: scheduleDisplayAudioModelRefresh()
   onAudioStreamsChanged: scheduleDisplayAudioModelRefresh()
+  onSourceChanged: clampCursor()
+  onVisibleSectionsChanged: clampCursor()
 
   function rowSnapshot(list) {
     return Model.rowSnapshot(list)
@@ -485,11 +467,6 @@ Panel {
     return ""
   }
 
-  function inputIcon() {
-    if (!hasInput) return "󰍭"
-    return inputMuted ? "󰍭" : "󰍬"
-  }
-
   // Playful mood-name for a given output volume. Mirrors the brightness
   // panel's brightnessName ladder; bands are wide enough that small
   // tweaks don't rename the room you're in.
@@ -578,16 +555,8 @@ Panel {
     sinkAvailabilityLoaded = true
   }
 
-  function friendlyDeviceLabel(text) {
-    return Model.friendlyDeviceLabel(text)
-  }
-
   function nodeLabel(node) {
     return Model.nodeLabel(node, Commons.I18n.t)
-  }
-
-  function nodeProps(node) {
-    return Model.nodeProps(node)
   }
 
   function isHeadphones(node) {
@@ -600,49 +569,6 @@ Panel {
 
   function sourceGlyph(node) {
     return Model.sourceGlyph(node)
-  }
-
-  function friendlyStreamLabel(label) {
-    return Model.friendlyStreamLabel(label)
-  }
-
-  function streamLabelKey(label) {
-    return Model.streamLabelKey(label)
-  }
-
-  function streamLabelIsGeneric(label) {
-    return Model.streamLabelIsGeneric(label)
-  }
-
-  function rawStreamLabel(node) {
-    return Model.rawStreamLabel(node)
-  }
-
-  function mprisPlayerLabel(player) {
-    return Model.mprisPlayerLabel(player)
-  }
-
-  function mprisPlayerIsProxy(player) {
-    return Model.mprisPlayerIsProxy(player)
-  }
-
-  function streamRepresentsMprisPlayer(streamLabel, playerLabel) {
-    return Model.streamRepresentsMprisPlayer(streamLabel, playerLabel)
-  }
-
-  function mprisLabelsFor(predicate) {
-    return Model.mprisLabelsFor(mprisPlayers, predicate)
-  }
-
-  function matchingMprisStreamLabel(label) {
-    return Model.matchingMprisStreamLabel(label, mprisPlayers)
-  }
-
-  function unmatchedMprisStreamLabel(label) {
-    // Spotify exposes its PipeWire stream as "audio-src". For generic stream
-    // names, use the one MPRIS player not already represented by another audio
-    // stream (e.g. Chromium, or ALSA apps like cliamp).
-    return Model.unmatchedMprisStreamLabel(label, mprisPlayers, audioStreams)
   }
 
   // These read the other streams' node properties, so they take the live list --
@@ -662,6 +588,7 @@ Panel {
   PwObjectTracker { objects: root.candidateSinks }
   PwObjectTracker { objects: root.candidateSources }
   PwObjectTracker { objects: root.audioStreams }
+  PwObjectTracker { objects: [root.sink, root.volumeSink, root.source].filter(Boolean) }
 
   PwNodePeakMonitor {
     id: inputPeakMonitor

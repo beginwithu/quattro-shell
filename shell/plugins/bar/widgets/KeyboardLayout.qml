@@ -56,8 +56,6 @@ BarWidget {
   property bool refreshPending: false
 
   function refresh() {
-    // The layout feed is Hyprland only; on any other compositor the widget stays hidden.
-    if (!Compositor.isHyprland) return
     if (queryProc.running) {
       refreshPending = true
       return
@@ -248,7 +246,7 @@ BarWidget {
   // forever for an answer only a device change can alter.
   Timer {
     interval: 10000
-    running: Compositor.isHyprland && (!root.keyboardName || root.keyboardUnresolved || !InputDevices.healthy)
+    running: !root.keyboardName || root.keyboardUnresolved || !InputDevices.healthy
     repeat: true
     onTriggered: root.refresh()
   }

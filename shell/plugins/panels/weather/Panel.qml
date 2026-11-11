@@ -13,7 +13,6 @@ Panel {
   manageIpc: false
 
   property var anchorItem: null
-  property bool openedFromHotkey: false
 
   // The bar tracks the widget mounted in its slot — BarWidget.qml — not this
   // nested panel. Everything the bar identifies a panel by has to be that
@@ -24,15 +23,6 @@ Panel {
   readonly property var barIdentity: hostWidget || root
 
   function open() {
-    openedFromHotkey = false
-    setCenterHoverRevealSuppressed(false)
-    root.controller.show()
-    locationFile.reload()
-    root.refresh()
-  }
-
-  function openFromHotkey() {
-    openedFromHotkey = true
     root.controller.show()
     locationFile.reload()
     root.refresh()
@@ -54,7 +44,7 @@ Panel {
 
   function toggle() {
     if (root.opened) root.close()
-    else root.openFromHotkey()
+    else root.open()
   }
 
   function switchPanel(direction) {
@@ -240,6 +230,9 @@ Panel {
     editingLocation = false
     savingLocation = false
     savingLocationQueryStarted = false
+    geocodePendingQuery = ""
+    geocodeActiveQuery = ""
+    geocodeProc.running = false
     locationSuggestions = []
     geocodeDebounce.stop()
     Qt.callLater(function() { if (panel.loadedContent) panel.loadedContent.forceActiveFocus() })
@@ -300,6 +293,9 @@ Panel {
     var locationField = root.locationInput()
     var query = locationField ? locationField.text.trim() : ""
     if (query.length < 2) {
+      geocodePendingQuery = ""
+      geocodeActiveQuery = ""
+      geocodeProc.running = false
       locationSuggestions = []
       return
     }
@@ -308,6 +304,7 @@ Panel {
   }
 
   function startGeocode() {
+    if (geocodeProc.running || !editingLocation || geocodePendingQuery.length < 2) return
     geocodeActiveQuery = geocodePendingQuery
     geocodeProc.command = ["curl", "-fsS", "--max-time", "5",
       "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(geocodeActiveQuery) + "&count=5&language=en&format=json"]
@@ -316,26 +313,6 @@ Panel {
 
   function buildForecastDays() {
     return Model.buildForecastDays(report, dailyForecastReport, Qt.formatDate(new Date(), "yyyy-MM-dd"))
-  }
-
-  function openMeteoForecastDays() {
-    return Model.openMeteoForecastDays(dailyForecastReport, Qt.formatDate(new Date(), "yyyy-MM-dd"))
-  }
-
-  function wttrNextForecastDays() {
-    return Model.wttrNextForecastDays(report, Qt.formatDate(new Date(), "yyyy-MM-dd"))
-  }
-
-  function isFutureForecastDate(dateString) {
-    return Model.isFutureForecastDate(dateString, Qt.formatDate(new Date(), "yyyy-MM-dd"))
-  }
-
-  function roundedTemp(value) {
-    return Model.roundedTemp(value)
-  }
-
-  function celsiusToFahrenheit(value) {
-    return Model.celsiusToFahrenheit(value)
   }
 
   function formatTemp(value) {
@@ -355,15 +332,6 @@ Panel {
   // Representative icon for a forecast day: the hourly entry nearest noon.
   function dayIcon(day) {
     return Model.dayIcon(day)
-  }
-
-  function iconForOpenMeteoCode(code) {
-    return Model.iconForOpenMeteoCode(code)
-  }
-
-  // Mirrors quattro-weather-icon's wttr.in code → nerd-font glyph mapping.
-  function iconForCode(code, night) {
-    return Model.iconForCode(code, night)
   }
 
   Process {
@@ -401,7 +369,11 @@ Panel {
   // wttr.in can be slow or flaky, especially for a location it hasn't
   // cached yet. Retry a few times before leaving it to the refresh timer.
   function scheduleForecastRetry() {
-    if (forecastRetries >= 3) return
+    if (forecastRetries >= 3) {
+      if (Model.weatherResponseCompletesSave(root.hasConfiguredCoordinates, "wttr"))
+        root.finishSavingLocation()
+      return
+    }
     forecastRetries++
     forecastRetryTimer.restart()
   }
@@ -416,7 +388,11 @@ Panel {
   // bar icon, so a dropped response (e.g. waking before the network is back)
   // must retry rather than wait out the refresh timer with a stale icon.
   function scheduleDailyForecastRetry() {
-    if (dailyForecastRetries >= 3) return
+    if (dailyForecastRetries >= 3) {
+      if (Model.weatherResponseCompletesSave(root.hasConfiguredCoordinates, "open-meteo"))
+        root.finishSavingLocation()
+      return
+    }
     dailyForecastRetries++
     dailyForecastRetryTimer.restart()
   }
@@ -455,10 +431,16 @@ Panel {
 
   Process {
     id: geocodeProc
+    onRunningChanged: if (!running && root.editingLocation && root.geocodePendingQuery.length >= 2 && root.geocodePendingQuery !== root.geocodeActiveQuery) Qt.callLater(root.startGeocode)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        root.locationSuggestions = root.editingLocation ? Model.parseGeocodingResults(text) : []
+        if (!root.editingLocation || root.geocodePendingQuery.length < 2) {
+          root.locationSuggestions = []
+          root.suggestionIndex = 0
+          return
+        }
+        root.locationSuggestions = Model.parseGeocodingResults(text)
         root.suggestionIndex = 0
         if (root.geocodePendingQuery !== root.geocodeActiveQuery) Qt.callLater(root.startGeocode)
       }
@@ -474,7 +456,11 @@ Panel {
   Process {
     id: locationSaveProc
     onExited: function(exitCode) {
-      if (exitCode !== 0 || !root.savingLocation) return
+      if (!root.savingLocation) return
+      if (exitCode !== 0) {
+        if (!root.savingLocationQueryStarted) root.cancelEditingLocation()
+        return
+      }
 
       // FileView handles changed locations. Explicitly refresh here too so
       // saving the already-active location cannot strand the spinner.
@@ -527,12 +513,12 @@ Panel {
   ShellIpc {
     target: root.ipcTarget
 
-    function open(): void { root.openFromHotkey() }
+    function open(): void { root.open() }
     function close(): void { root.close() }
-    function show(): void { root.openFromHotkey() }
+    function show(): void { root.open() }
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
-    function edit(): void { root.openFromHotkey(); root.startEditingLocation() }
+    function edit(): void { root.open(); root.startEditingLocation() }
   }
 
   KeyboardPanel {

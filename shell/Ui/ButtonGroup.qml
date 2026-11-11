@@ -54,7 +54,7 @@ Row {
     return (o && typeof o === "object") ? String(o.value) : String(o)
   }
   function optionLabel(o) {
-    return (o && typeof o === "object" && o.label !== undefined) ? String(o.label) : String(o)
+    return (o && typeof o === "object") ? String(o.label !== undefined ? o.label : o.value) : String(o)
   }
   function optionIcon(o) {
     return (o && typeof o === "object" && o.icon) ? String(o.icon) : ""

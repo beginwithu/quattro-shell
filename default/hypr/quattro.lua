@@ -1,6 +1,8 @@
 -- Quattro Hyprland setup: helpers, defaults, and current theme overrides.
 
 require("default.hypr.helpers")
+local paths = require("default.hypr.paths")
+local require_all = require("default.hypr.require_all")
 local require_optional = require("default.hypr.require_optional")
 
 -- Use Quattro defaults, but don't edit these directly.
@@ -23,5 +25,6 @@ require("default.hypr.looknfeel")
 require("default.hypr.input")
 require("default.hypr.windows")
 
--- Current theme overrides.
+-- Current theme overrides and active toggles.
 require_optional.module("quattro.current.theme.hyprland")
+require_all.files(paths.state_home .. "/quattro/toggles/hypr", "quattro.toggles.hypr", { reload = true })

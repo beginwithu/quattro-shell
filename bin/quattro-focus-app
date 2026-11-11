@@ -1,23 +1,15 @@
 #!/bin/bash
 
-# quattro:summary=Focus the most recently used window whose app id or class matches
+# quattro:summary=Focus the most recently used Hyprland window whose class matches
 # quattro:args=<app-name>
 app=${1:-}
 [[ -n $app ]] || { echo "Usage: quattro-focus-app <app-name>" >&2; exit 1; }
+[[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] || exit 1
 
-case "$(quattro-compositor kind)" in
-  hyprland)
-    address=$(hyprctl clients -j 2>/dev/null | jq -r --arg pattern "$app" '
-      sort_by(.focusHistoryID)
-      | first(.[] | select((.class // "") | test($pattern; "i"))).address // empty')
-    [[ -n $address ]] || exit 1
-    hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" >/dev/null 2>&1 || \
-      hyprctl dispatch focuswindow "address:$address" >/dev/null ;;
-  sway)
-    swaymsg "[app_id=\"(?i).*${app}.*\"] focus" >/dev/null 2>&1 || swaymsg "[class=\"(?i).*${app}.*\"] focus" >/dev/null ;;
-  niri)
-    id=$(niri msg --json windows 2>/dev/null | jq -r --arg pattern "$app" 'first(.[] | select((.app_id // "") | test($pattern; "i"))).id // empty')
-    [[ -n $id ]] || exit 1
-    niri msg action focus-window --id "$id" >/dev/null ;;
-  *) exit 1 ;;
-esac
+address=$(hyprctl clients -j 2>/dev/null | jq -r --arg pattern "$app" '
+  sort_by(.focusHistoryID)
+  | first(.[] | select((.class // "") | test($pattern; "i"))).address // empty')
+[[ -n $address && $address =~ ^0x[0-9a-fA-F]+$ ]] || exit 1
+
+[[ $(hyprctl dispatch "hl.dsp.focus({ window = hl.get_window(\"address:$address\") })" 2>&1) == ok ]] || \
+  [[ $(hyprctl dispatch focuswindow "address:$address" 2>&1) == ok ]]

@@ -14,7 +14,6 @@ Item {
   property bool fingerprintUnavailable: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
-  property int failedAttempts: 0
   property bool inputEnabled: true
   property bool loadBackground: true
   property string passwordText: ""
@@ -51,10 +50,6 @@ Item {
 
   function forcePasswordFocus() {
     passwordInput.forceActiveFocus()
-  }
-
-  function clearPassword() {
-    passwordTextEdited("")
   }
 
   // Waking a DPMS-blanked display can stall the compositor for seconds while

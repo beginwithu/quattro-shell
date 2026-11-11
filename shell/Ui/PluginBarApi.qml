@@ -44,6 +44,11 @@ QtObject {
   property var _moduleWidgets: null
   property var _run: null
   property var _setCenterHoverRevealSuppressed: null
+  property var _barSizeFor: null
+
+  function barSizeFor(screenName) {
+    return _barSizeFor ? _barSizeFor(String(screenName || "")) : barSize
+  }
 
   function setCenterHoverRevealSuppressed(value) {
     if (_setCenterHoverRevealSuppressed) _setCenterHoverRevealSuppressed(!!value)

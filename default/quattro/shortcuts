@@ -1,5 +1,4 @@
-# Global shortcuts the Quattro shell registers (Hyprland only; on other compositors
-# bind keys to the quattro-menu / quattro-shell commands instead, see the README), one per line: a menu
+# Global shortcuts the Quattro shell registers, one per line: a menu
 # route to toggle, a panel plugin to toggle, a volume or brightness key, or an
 # argument-free IPC call as target.method. A binding written as o.bind(keys,
 # description, { menu = "theme" }), { panel = "quattro.emojis" },

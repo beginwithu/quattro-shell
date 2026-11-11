@@ -59,7 +59,7 @@ Item {
     return (o && typeof o === "object") ? String(o.value) : String(o)
   }
   function optionLabel(o) {
-    return (o && typeof o === "object") ? String(o.label) : String(o)
+    return (o && typeof o === "object") ? String(o.label !== undefined ? o.label : o.value) : String(o)
   }
   function optionDescription(o) {
     return (o && typeof o === "object" && o.description) ? String(o.description) : ""
@@ -194,6 +194,7 @@ Item {
 
         onOpened: {
           searchField.text = ""
+          resultList.currentIndex = -1
           root.recomputeFiltered()
           Qt.callLater(function() { searchField.forceActiveFocus() })
         }

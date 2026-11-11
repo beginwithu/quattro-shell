@@ -45,10 +45,12 @@ PanelWindow {
   readonly property bool failed: error !== ""
 
   function resetScale() {
+    if (!scaleStops || scaleStops.length === 0) return
     fullScale = scaleStops[0]
   }
 
   function expandScale(value) {
+    if (!scaleStops || scaleStops.length === 0) return
     // Either reading ranges the entire cluster upward. Keeping this latch on
     // the overlay ensures both dials always describe the same scale.
     for (var i = 0; i < scaleStops.length; i++) {

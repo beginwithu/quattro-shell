@@ -264,10 +264,6 @@ BarWidget {
           horizontal: true
           reportActiveState: !root.vertical
         }
-
-        HoverHandler {
-          onHoveredChanged: root.setIndicatorAreaHovered(hovered)
-        }
       }
 
       ActiveIndicatorBlock {
@@ -312,10 +308,6 @@ BarWidget {
           indicatorBlock: "inactive"
           horizontal: false
           reportActiveState: root.vertical
-        }
-
-        HoverHandler {
-          onHoveredChanged: root.setIndicatorAreaHovered(hovered)
         }
       }
 

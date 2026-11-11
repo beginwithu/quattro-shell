@@ -24,6 +24,7 @@ QtObject {
   property var installedPlugins: ({})
   property int registryRevision: 0
   property bool scanning: false
+  property bool rescanPending: false
   property string lastEnableError: ""
 
   signal pluginsChanged()
@@ -118,17 +119,10 @@ QtObject {
   function entryPointUrl(manifest, kind) {
     if (!Util.isPlainObject(manifest)) return ""
     var ep = manifest.entryPoints ? manifest.entryPoints[kind] : null
-    if (!ep) return ""
+    if (!isSafeEntryPoint(ep)) return ""
     var dir = manifest.__sourceDir || ""
     if (!dir) return ""
-    // Defense in depth: even after validateManifest, confirm the resolved
-    // path stays inside the plugin's sourceDir.
     var resolved = dir.replace(/\/$/, "") + "/" + String(ep)
-    var expectedPrefix = dir.replace(/\/$/, "") + "/"
-    if (resolved.indexOf(expectedPrefix) !== 0) {
-      console.warn("PluginRegistry: entry point escapes sourceDir: " + resolved)
-      return ""
-    }
     return Util.fileUrl(resolved)
   }
 
@@ -278,7 +272,9 @@ QtObject {
 
     if (!Array.isArray(config.bar.layout[section])) config.bar.layout[section] = []
     if (target.index !== undefined && target.index !== null) {
-      var requested = Math.max(0, Math.floor(Number(target.index)))
+      var rawIndex = Math.floor(Number(target.index))
+      if (!isFinite(rawIndex)) return { error: "invalid target index " + target.index }
+      var requested = Math.max(0, rawIndex)
       return { section: section, index: Math.min(requested, config.bar.layout[section].length) }
     }
 
@@ -301,7 +297,7 @@ QtObject {
       if (!fromSection) return "from-index requires from-section"
       var entries = config.bar.layout[fromSection]
       var fromIndex = Math.floor(Number(placement.fromIndex))
-      if (!Array.isArray(entries) || fromIndex < 0 || fromIndex >= entries.length)
+      if (!Array.isArray(entries) || !isFinite(fromIndex) || fromIndex < 0 || fromIndex >= entries.length)
         return "no widget at " + fromSection + "[" + fromIndex + "]"
       if (barEntryId(entries[fromIndex]) !== key)
         return "widget at " + fromSection + "[" + fromIndex + "] is not " + key
@@ -373,7 +369,7 @@ QtObject {
         }
         var entries = config.bar.layout[section]
         var numericIndex = Math.floor(Number(index))
-        if (!Array.isArray(entries) || numericIndex < 0 || numericIndex >= entries.length) {
+        if (!Array.isArray(entries) || !isFinite(numericIndex) || numericIndex < 0 || numericIndex >= entries.length) {
           error = "no widget at " + section + "[" + numericIndex + "]"
           return
         }
@@ -672,6 +668,10 @@ QtObject {
     scanning = false
     pluginsChanged()
     scanFinished()
+    if (rescanPending) {
+      rescanPending = false
+      rescan()
+    }
   }
 
   property Process scanProcess: Process {
@@ -750,7 +750,10 @@ QtObject {
   }
 
   function rescan() {
-    if (scanning) return
+    if (scanning) {
+      rescanPending = true
+      return
+    }
     scanning = true
     // $0 = first-party dir, $1 = third-party dir. Some bash versions need the explicit -- separator.
     // First-party plugins may be grouped one level deeper, e.g. panels/audio

@@ -297,7 +297,7 @@ PanelWindow {
     if (!bar) return
     if (open) {
       popoutSwitchClosing = false
-      popoutSwitching = bar.activePopout && bar.activePopout !== coordinatorKey
+      popoutSwitching = !!(bar.activePopout && bar.activePopout !== coordinatorKey)
       if (popoutSwitching) morphFromLastCard()
       bar.requestPopout(coordinatorKey)
       publishCard()

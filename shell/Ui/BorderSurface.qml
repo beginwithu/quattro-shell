@@ -29,6 +29,7 @@ Rectangle {
 
   Loader {
     anchors.fill: parent
+    z: 100000
     active: root.usesOverlayBorder
 
     sourceComponent: BorderOverlay {

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Quattro shell installer (Arch Linux and derivatives). Works from the folder it sits in; nothing is copied
-# elsewhere except small symlinks and per-user config.
+# Quattro shell installer for Hyprland (Arch Linux and derivatives). Works from the folder it sits in;
+# nothing is copied elsewhere except small symlinks and per-user config.
 #
 #   ./install.sh                 install missing dependencies, link commands, set up config and a theme
 #   ./install.sh --lock          also install the PAM service the lock screen needs (sudo)
@@ -80,9 +80,11 @@ remove_links() {
 # req and rec are installed automatically, opt is only reported. Every package
 # is in the official Arch repositories, so no AUR helper is needed.
 DEPS=(
+  "req|hyprctl|the Hyprland compositor|hyprland"
   "req|quickshell|the shell itself|quickshell"
   "req|jq|JSON handling|jq"
   "req|curl|weather and geolocation|curl"
+  "rec|hyprsunset|night light|hyprsunset"
   "rec|wpctl|audio panel and volume keys|wireplumber"
   "rec|pactl|audio device switching|libpulse"
   "rec|nmcli|network panel|networkmanager"
@@ -95,7 +97,7 @@ DEPS=(
   "rec|grim|screenshots|grim"
   "rec|slurp|region screenshots|slurp"
   "rec|iw|Wi-Fi band switching|iw"
-  "rec|notify-send|scripts that raise notifications|libnotify"
+  "rec|xkbcli|keyboard layout codes|libxkbcommon"
   "rec|socat|fast IPC for key bindings|socat"
   "opt|ddcutil|external monitor brightness|ddcutil"
   "opt|magick|bar text color from the background|imagemagick"
@@ -105,7 +107,6 @@ DEPS=(
   "opt|zbarimg|QR code capture|zbar"
   "opt|hyprpicker|color picker|hyprpicker"
 )
-NIGHTLIGHT_PKG=wlsunset
 FONT_PKG=ttf-jetbrains-mono-nerd
 
 # Arch and its derivatives (EndeavourOS, CachyOS, Manjaro, ...) report arch in ID or ID_LIKE.
@@ -115,21 +116,17 @@ is_arch() {
   have pacman && [[ $ids == *" arch "* ]]
 }
 
-missing_req=() missing_pkgs=() need_nightlight=0 need_font=0
+missing_req=() missing_pkgs=() need_font=0
 
 scan_dependencies() {
   local row f
-  missing_req=() missing_pkgs=() need_nightlight=0 need_font=0
+  missing_req=() missing_pkgs=() need_font=0
   for row in "${DEPS[@]}"; do
     IFS='|' read -ra f <<<"$row"
     if have "${f[1]}"; then continue; fi
     if [[ ${f[0]} == req ]]; then missing_req+=("${f[1]}"); fi
     if [[ ${f[0]} != opt ]]; then missing_pkgs+=("${f[3]}"); fi
   done
-  if ! have hyprsunset && ! have wlsunset && ! have gammastep; then
-    need_nightlight=1
-    missing_pkgs+=("$NIGHTLIGHT_PKG")
-  fi
   if [[ $(fc-list : family 2>/dev/null) != *[Nn]erd* ]]; then
     need_font=1
     missing_pkgs+=("$FONT_PKG")
@@ -155,8 +152,6 @@ report_dependencies() {
       else say "  missing  ${f[1]}  (${f[2]}; package: ${f[3]})"; fi
     done
     if [[ $tier == rec ]]; then
-      if (( need_nightlight )); then say "  missing  hyprsunset | wlsunset | gammastep  (night light; package: $NIGHTLIGHT_PKG)"
-      else say "  ok       night light backend"; fi
       if (( need_font )); then say "  missing  a Nerd Font  (icons; package: $FONT_PKG)"
       else say "  ok       a Nerd Font"; fi
     fi
@@ -211,6 +206,9 @@ if (( UNINSTALL )); then
   [[ $BIN_DIR == "$LEGACY_BIN_DIR" ]] || remove_links "$LEGACY_BIN_DIR"
   systemctl --user disable --now quattro-sleep-lock.service 2>/dev/null || true
   rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/quattro-sleep-lock.service"
+  if [[ -f /etc/systemd/logind.conf.d/20-quattro-inhibit-delay.conf ]]; then
+    privileged /etc/systemd/logind.conf.d rm -f /etc/systemd/logind.conf.d/20-quattro-inhibit-delay.conf
+  fi
   say "Removed links and units. Run ./bin/quattro-apply-lock --remove to drop the PAM files; your config in $CONFIG_DIR is untouched."
   exit 0
 fi
@@ -234,7 +232,7 @@ if (( ${#missing_req[@]} )); then
   exit 1
 fi
 
-chmod +x "$ROOT"/bin/* 2>/dev/null || true
+chmod +x "$ROOT"/bin/* "$ROOT"/shell/plugins/clipboard/capture.sh "$ROOT"/shell/plugins/lock/poster.sh "$ROOT"/shell/services/hidden-entries.sh 2>/dev/null || true
 
 say ""
 say "Linking commands into $BIN_DIR"
@@ -252,10 +250,8 @@ mkdir -p "$CONFIG_DIR"
 if [[ ! -e $CONFIG_DIR/env ]]; then
   cat > "$CONFIG_DIR/env" <<'ENV'
 # Environment for the Quattro shell, read by quattro-launch-shell. Examples:
-#QUATTRO_COMPOSITOR=generic          # hyprland | sway | niri | generic (default: detected)
 #QUATTRO_TERMINAL=foot               # terminal for TUIs and prompts
-#QUATTRO_WORKSPACES_CMD=my-tags-feed # prints workspace JSON lines (see README)
-#QUATTRO_WORKSPACE_FOCUS_CMD='my-focus {id}'
+#QUATTRO_MENU_FONT="JetBrainsMono Nerd Font"
 ENV
 fi
 
@@ -280,6 +276,6 @@ if (( DO_SLEEP )); then
 fi
 
 say ""
-say "Done. Start the shell from your compositor's autostart with:"
+say "Done. Start the shell from Hyprland's autostart with:"
 say "    $ROOT/bin/quattro-launch-shell"
-say "or try it now from a Wayland session:  quattro-launch-shell &"
+say "or try it now from a Hyprland session:  quattro-launch-shell &"

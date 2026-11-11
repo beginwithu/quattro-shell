@@ -344,6 +344,11 @@ Item {
 
   Process {
     id: zoneProc
+    onRunningChanged: if (!running) Qt.callLater(function() {
+      if (!root.probeQueued) return
+      root.probeQueued = false
+      root.probeZones()
+    })
     stdout: StdioCollector {
       onStreamFinished: {
         var probe = Model.parseProbe(text)

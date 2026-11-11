@@ -19,7 +19,7 @@ ShellRoot {
   // rather than re-importing them as singletons — relative-path imports do
   // not share singleton state, which silently leaves consumers with their
   // own empty copies.
-  property PluginRegistry pluginRegistry: PluginRegistry { }
+  property PluginRegistry pluginRegistry: PluginRegistry { firstPartyDir: shell.firstPartyPluginsDir }
   property BarWidgetRegistry barWidgetRegistry: BarWidgetRegistry { }
   property AppLibrary appLibrary: AppLibrary { }
   property BrightnessKeys brightnessKeys: BrightnessKeys { host: shell }
@@ -27,8 +27,8 @@ ShellRoot {
   property string home: Quickshell.env("HOME")
 
   // The quattro-shell host is the long-running entry point. Plugins live in
-  // sibling directories under plugins/. QUATTRO_PATH is provided by the uwsm
-  // session environment and is the single source of truth for this checkout.
+  // sibling directories under plugins/. QUATTRO_PATH is provided by
+  // quattro-launch-shell and is the single source of truth for this checkout.
   property string quattroPath: Quickshell.env("QUATTRO_PATH")
   readonly property string shellPath: quattroPath + "/shell"
   readonly property string firstPartyPluginsDir: shellPath + "/plugins"
@@ -155,6 +155,11 @@ ShellRoot {
   }
 
   Component.onCompleted: {
+    if (!Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE")) {
+      console.error("quattro-shell requires Hyprland (HYPRLAND_INSTANCE_SIGNATURE is not set)")
+      Qt.quit()
+      return
+    }
     console.log("quattro-shell paths",
       "quattroPath=" + shell.quattroPath,
       "shellDir=" + Quickshell.shellDir,
@@ -244,9 +249,10 @@ ShellRoot {
     Bar {
       quattroPath: shell.quattroPath
       barWidgetRegistry: shell.barWidgetRegistry
+      pluginRegistry: shell.pluginRegistry
       barConfig: shell.barConfig
       shell: shell
-      manifest: shell.barManifestFor(shell.defaultBarId)
+      manifest: shell.activeBarManifest
     }
   }
 
@@ -255,8 +261,8 @@ ShellRoot {
 
     active: shell.activeBarId === shell.defaultBarId
     sourceComponent: defaultBarComponent
-    onLoaded: shell.configureBar(item, shell.barManifestFor(shell.defaultBarId))
-    onActiveChanged: if (!active && shell.activeBarId !== shell.defaultBarId) shell.bar = null
+    onLoaded: shell.bar = item
+    onActiveChanged: if (!active && shell.bar !== pluginBarLoader.item) shell.bar = null
   }
 
   Loader {
@@ -266,7 +272,7 @@ ShellRoot {
     source: shell.activeBarId !== shell.defaultBarId ? shell.activeBarSourceUrl : ""
     asynchronous: true
     onLoaded: shell.configureBar(item, shell.activeBarManifest)
-    onActiveChanged: if (!active) shell.bar = null
+    onActiveChanged: if (!active && shell.bar !== defaultBarLoader.item) shell.bar = null
     onStatusChanged: {
       if (status === Loader.Error) {
         console.warn("bar option " + shell.activeBarId + " failed to load, falling back to " + shell.defaultBarId)
@@ -905,6 +911,8 @@ ShellRoot {
     }
     for (var entryKey in _pluginBarEntryShellApis)
       _pluginBarEntryShellApis[entryKey].barConfig = shell.publicBarConfig()
+    if (pluginBarLoader.item && "manifest" in pluginBarLoader.item)
+      pluginBarLoader.item.manifest = shell.publicPluginManifest(shell.activeBarManifest)
   }
 
   // Reassigned as each service registers, so a binding that reads this before
@@ -1615,17 +1623,18 @@ ShellRoot {
     } else if (entry.kind === "ipc") {
       // "media.next" runs the media service's own IPC handler for next.
       var dot = entry.target.indexOf(".")
+      if (dot <= 0) return
       var target = entry.target.slice(0, dot)
       var method = entry.target.slice(dot + 1)
-      var service = shell.serviceFor(shell.ipcShortcutServices[target] || "")
-      if (!service || !service.runShortcut(method))
+      var service = shell.firstPartyServiceFor(shell.ipcShortcutServices[target] || "")
+      if (!service || typeof service.runShortcut !== "function" || !service.runShortcut(method))
         Util.execArgv(["quattro-shell", target, method])
     } else if (entry.kind === "brightness") {
       if (!shell.brightnessKeys.handle(entry.target))
         Util.execArgv(["quattro-brightness-display", entry.target === "raise" ? "+5%" : "5%-"])
     } else if (entry.kind === "audio") {
-      var media = shell.serviceFor("quattro.media")
-      if (!media || !media.handleVolumeKey(entry.target))
+      var media = shell.firstPartyServiceFor("quattro.media")
+      if (!media || typeof media.handleVolumeKey !== "function" || !media.handleVolumeKey(entry.target))
         Util.execArgv(["quattro-audio-output-volume", entry.target])
     } else {
       shell.toggle(entry.target, "{}")
@@ -1636,6 +1645,7 @@ ShellRoot {
     id: shortcutsFile
     path: shell.quattroPath + "/default/quattro/shortcuts"
     watchChanges: true
+    printErrors: false
     onFileChanged: reload()
   }
 

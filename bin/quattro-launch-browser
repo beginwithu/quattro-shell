@@ -1,7 +1,53 @@
 #!/bin/bash
 
 # quattro:summary=Open a URL in the default browser
-if [[ -n ${BROWSER:-} ]] && command -v "${BROWSER%% *}" >/dev/null 2>&1; then
-  exec setsid $BROWSER "$@" >/dev/null 2>&1
+# quattro:args=[--private] [url...]
+
+private=0
+if [[ ${1:-} == --private ]]; then
+  private=1
+  shift
 fi
-exec setsid xdg-open "${1:-about:blank}" >/dev/null 2>&1
+
+resolve_browser() {
+  if [[ -n ${BROWSER:-} ]] && command -v "${BROWSER%% *}" >/dev/null 2>&1; then
+    printf '%s\n' "${BROWSER%% *}"
+    return 0
+  fi
+
+  local desktop dir cmd
+  desktop=$(xdg-settings get default-web-browser 2>/dev/null || xdg-mime query default x-scheme-handler/https 2>/dev/null || true)
+  if [[ -n $desktop ]]; then
+    for dir in "${XDG_DATA_HOME:-$HOME/.local/share}/applications" /usr/local/share/applications /usr/share/applications; do
+      if [[ -f $dir/$desktop ]]; then
+        cmd=$(sed -n 's/^Exec=["'\'']*\([^ "%'\'']*\).*/\1/p' "$dir/$desktop" | head -n1)
+        if [[ -n $cmd ]] && command -v "$cmd" >/dev/null 2>&1; then
+          printf '%s\n' "$cmd"
+          return 0
+        fi
+      fi
+    done
+  fi
+
+  for cmd in firefox zen-browser librewolf chromium google-chrome-stable brave vivaldi; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      printf '%s\n' "$cmd"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if browser=$(resolve_browser); then
+  private_flag=()
+  if (( private )); then
+    case "${browser##*/}" in
+      *firefox*|*zen*|*librewolf*|*waterfox*|*floorp*) private_flag=(--private-window) ;;
+      *) private_flag=(--incognito) ;;
+    esac
+  fi
+  exec setsid "$browser" "${private_flag[@]}" "$@" >/dev/null 2>&1
+fi
+
+(( $# > 0 )) && exec setsid xdg-open "$@" >/dev/null 2>&1
+exit 1

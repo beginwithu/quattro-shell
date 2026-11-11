@@ -117,11 +117,7 @@ local function command_from(value, description)
       return o.launch_webapp(value.webapp)
     end
   elseif value.tui then
-    if value.focus then
-      return "quattro-launch-tui " .. shell_quote(value.tui)
-    else
-      return "quattro-launch-tui " .. shell_quote(value.tui)
-    end
+    return "quattro-launch-tui " .. shell_quote(value.tui)
   end
 
   return value

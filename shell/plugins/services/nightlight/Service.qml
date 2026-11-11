@@ -20,9 +20,15 @@ Item {
 
   property bool hasPendingTemperature: false
   property int pendingTemperature: 0
+  property bool refreshPending: false
 
   function refresh() {
-    if (!statusProbe.running) statusProbe.running = true
+    if (statusProbe.running) {
+      root.refreshPending = true
+      return
+    }
+    root.refreshPending = false
+    statusProbe.running = true
   }
 
   function setNightlight(value) {
@@ -57,15 +63,17 @@ Item {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        if (applyProcess.running || root.hasPendingTemperature) return
         root.temperature = NightlightModel.temperatureFromOutput(text)
         root.stateLoaded = true
       }
     }
     onExited: function(exitCode) {
-      if (exitCode !== 0) {
+      if (exitCode !== 0 && !applyProcess.running && !root.hasPendingTemperature) {
         root.temperature = null
         root.stateLoaded = true
       }
+      if (root.refreshPending) Qt.callLater(root.refresh)
     }
   }
 
@@ -73,8 +81,9 @@ Item {
     id: applyProcess
     onExited: function() {
       if (root.hasPendingTemperature) {
+        var pending = root.pendingTemperature
         root.hasPendingTemperature = false
-        root.runApply(root.pendingTemperature)
+        Qt.callLater(function() { root.runApply(pending) })
         return
       }
 

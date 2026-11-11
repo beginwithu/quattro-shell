@@ -16,7 +16,7 @@ BarWidget {
   property bool managePopupOpen: false
   property bool trayMenuOpen: false
   property var activeTrayItem: null
-  property var activeTrayAnchor: null
+  property Item activeTrayAnchor: null
   readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property var pinnedIds: settings.pinned instanceof Array ? settings.pinned : []
@@ -142,7 +142,8 @@ BarWidget {
   }
 
   function openTrayMenu(item, anchorItem, mouse) {
-    if (!item || !item.menu) {
+    if (!item) return
+    if (!item.menu) {
       var point = anchorItem.QsWindow.contentItem.mapFromItem(anchorItem, mouse.x, mouse.y)
       item.display(anchorItem.QsWindow.window, point.x, point.y)
       return
@@ -156,6 +157,15 @@ BarWidget {
     activeTrayItem = item
     activeTrayAnchor = anchorItem
     trayMenuOpen = true
+  }
+
+  onAllItemsChanged: {
+    if (activeTrayItem && allItems.indexOf(activeTrayItem) === -1) {
+      resetTrayMenu()
+      activeTrayItem = null
+      activeTrayAnchor = null
+      trayMenuOpen = false
+    }
   }
 
   function trayIconSource(icon) {

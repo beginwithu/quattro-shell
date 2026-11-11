@@ -5,8 +5,6 @@ var FAST_ERROR_MS = 2000
 var NUDGE_COOLDOWN_MS = 2000
 var IDLE_CLEAR_MS = 32000
 var ERROR_RETRY_BASE_MS = 1000
-// Leave enough idle time for fprintd to exit and clear a wedged claim.
-var FPRINTD_IDLE_EXIT_MS = 30000
 var ERROR_RETRY_CAP_MS = 40000
 var UNAVAILABLE_AFTER = 3
 // Abort before the D-Bus claim timeout, while allowing slow device opens.
@@ -76,7 +74,6 @@ if (typeof module !== "undefined") {
     shouldNudge: shouldNudge,
     ERROR_RETRY_BASE_MS: ERROR_RETRY_BASE_MS,
     ERROR_RETRY_CAP_MS: ERROR_RETRY_CAP_MS,
-    FPRINTD_IDLE_EXIT_MS: FPRINTD_IDLE_EXIT_MS,
     UNAVAILABLE_AFTER: UNAVAILABLE_AFTER,
     REACH_TIMEOUT_MS: REACH_TIMEOUT_MS,
     SLEEP_GAP_MS: SLEEP_GAP_MS,

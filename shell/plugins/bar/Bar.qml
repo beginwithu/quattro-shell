@@ -386,6 +386,7 @@ Item {
           ? root.moduleWidgets(moduleName) : []
       },
       _run: function(command) { root.run(command) },
+      _barSizeFor: function(screenName) { return root.barSizeFor(screenName) },
       _setCenterHoverRevealSuppressed: function(value) {
         root.centerHoverRevealSuppressed = !!value
       }
@@ -572,7 +573,7 @@ Item {
   }
 
   function targetTooltipHovered(target) {
-    return !!target && target.visible !== false && target.opacity !== 0 && target.tooltipHovered === true
+    return !!target && target.visible !== false && target.opacity !== 0 && target.tooltipHovered !== false
   }
 
   function clearTooltip() {
@@ -1757,9 +1758,13 @@ Item {
 
     readonly property var panelMode: root.panelModeFor(screen)
 
-    readonly property bool centerBesideRight: BarModel.centerBesideRight(root.displayCutouts, root.position, screen.name, screen.width, screen.height, screen.devicePixelRatio, panelMode)
+    readonly property bool centerBesideRight: screen
+      ? BarModel.centerBesideRight(root.displayCutouts, root.position, screen.name, screen.width, screen.height, screen.devicePixelRatio, panelMode)
+      : false
 
-    readonly property bool cutoutPending: BarModel.cutoutPending(root.displayCutouts, root.position, screen.name, screen.width, screen.height, screen.devicePixelRatio, panelMode)
+    readonly property bool cutoutPending: screen
+      ? BarModel.cutoutPending(root.displayCutouts, root.position, screen.name, screen.width, screen.height, screen.devicePixelRatio, panelMode)
+      : false
     property bool cutoutWaitOver: false
     onCutoutPendingChanged: if (!cutoutPending) cutoutWaitOver = true
     Component.onCompleted: if (!cutoutPending) cutoutWaitOver = true
@@ -1795,7 +1800,7 @@ Item {
     // Whether the active workspace on this screen holds a real fullscreen
     // window, which fades the bar out.
     readonly property bool underFullscreen: {
-      var monitor = Hyprland.monitorFor(screen)
+      var monitor = screen ? Hyprland.monitorFor(screen) : null
       var workspace = monitor ? monitor.activeWorkspace : null
       return !!workspace && BarModel.fullscreenOn(Hyprland.toplevels.values, workspace.id)
     }
@@ -3220,7 +3225,7 @@ Item {
     }
 
     Timer {
-      interval: Math.max(1, Number(customRoot.setting("interval", 5))) * 1000
+      interval: Math.max(1, Number(customRoot.setting("interval", 5)) || 5) * 1000
       running: String(customRoot.setting("exec", "")) !== ""
       repeat: true
       triggeredOnStart: true

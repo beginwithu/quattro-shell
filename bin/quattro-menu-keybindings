@@ -12,16 +12,27 @@ fi
 command -v hyprctl >/dev/null 2>&1 || exit 0
 
 hyprctl binds 2>/dev/null | awk '
-  function reset() { modmask = 0; key = ""; desc = ""; submap = ""; hasdesc = 0 }
-  function flush(   m, keys) {
-    if (key != "" && hasdesc && desc != "" && submap == "") {
+  function reset() { modmask = 0; key = ""; keycode = 0; desc = ""; submap = ""; hasdesc = 0 }
+  function key_label(   c) {
+    if (key != "") return key
+    c = keycode + 0
+    if (c >= 10 && c <= 18) return "" (c - 9)
+    if (c == 19) return "0"
+    if (c == 20) return "-"
+    if (c == 21) return "="
+    if (c > 0) return "code:" c
+    return ""
+  }
+  function flush(   m, k, keys) {
+    k = key_label()
+    if (k != "" && hasdesc && desc != "" && submap == "") {
       m = modmask + 0
       keys = ""
       if (int(m / 64) % 2) keys = keys "SUPER + "
       if (int(m / 4) % 2) keys = keys "CTRL + "
       if (int(m / 8) % 2) keys = keys "ALT + "
       if (m % 2) keys = keys "SHIFT + "
-      keys = keys key
+      keys = keys k
       if (!((keys SUBSEP desc) in seen)) {
         seen[keys SUBSEP desc] = 1
         printf "%s\t%s\t\t%s\t%s\n", desc, keys, keys, keys
@@ -42,6 +53,7 @@ hyprctl binds 2>/dev/null | awk '
     gsub(/\t/, " ", val)
     if (name == "modmask") modmask = val
     else if (name == "key") key = val
+    else if (name == "keycode") keycode = val
     else if (name == "description") desc = val
     else if (name == "submap") submap = val
     else if (name == "has_description") hasdesc = (val == "true")

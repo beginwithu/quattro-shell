@@ -51,10 +51,6 @@ Item {
     ? root.iconWidth + root.gap + root.barWidth + root.gap + root.valueWidth
     : (root.message === "" ? root.iconWidth : root.iconWidth + root.messageGap + root.messageWidth)
 
-  function iconFor(name, percent) {
-    return OsdModel.iconFor(name, percent)
-  }
-
   function show(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration) {
     var next = OsdModel.stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration, Commons.I18n.formatNumber)
     // Update before opening so a fresh OSD starts at its new value; only
@@ -78,7 +74,10 @@ Item {
     } catch (e) {}
   }
 
-  function close() { opened = false }
+  function close() {
+    hideTimer.stop()
+    opened = false
+  }
 
   Timer {
     id: hideTimer

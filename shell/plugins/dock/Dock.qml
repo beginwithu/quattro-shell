@@ -2,9 +2,8 @@ import QtQuick
 import Quickshell
 import qs.Commons
 
-// The app launcher. Quattro's floating-workspace dock was tied to Hyprland and
-// its layout scripts, so only the app grid survives here: `quattro-shell
-// quattro.dock apps` toggles it, and the menu's Apps entry opens it.
+// The app grid launcher: `quattro-shell quattro.dock apps` toggles it, and the
+// menu's Apps entry opens it.
 Item {
   id: root
 
@@ -23,6 +22,5 @@ Item {
   AppGrid {
     id: appGrid
     appLibrary: root.appLibrary
-    dock: null
   }
 }

@@ -34,8 +34,9 @@ Item {
     if (setProc.running) return true
 
     var max = readNumber(maxFile)
-    if (!(max > 0)) return false
-    var current = Math.round(100 * readNumber(brightnessFile) / max)
+    var brightness = readNumber(brightnessFile)
+    if (!(max > 0) || !(brightness >= 0)) return false
+    var current = Math.round(100 * brightness / max)
 
     setProc.command = ["brightnessctl", "-q", "-d", device, "set", BrightnessModel.brightnessKeyTarget(action, current) + "%"]
     setProc.running = true
@@ -54,8 +55,9 @@ Item {
   // The payload quattro-osd builds, from the level read back after the write.
   function showOsd() {
     var max = readNumber(maxFile)
-    if (!host || !(max > 0)) return
-    var percent = Math.round(100 * readNumber(brightnessFile) / max)
+    var brightness = readNumber(brightnessFile)
+    if (!host || !(max > 0) || !(brightness >= 0)) return
+    var percent = Math.round(100 * brightness / max)
     host.summon("quattro.osd", JSON.stringify({
       icon: "brightness",
       message: "",
@@ -82,8 +84,8 @@ Item {
 
   Process {
     id: setProc
-    onExited: {
-      root.showOsd()
+    onExited: function(exitCode) {
+      if (exitCode === 0) root.showOsd()
       if (!deviceProc.running) deviceProc.running = true
     }
   }

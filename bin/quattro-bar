@@ -17,8 +17,26 @@ Usage: quattro-bar <command> [args...]
   get <id> <key>                         Read a widget setting
   set <id> <key> <value> [--json]        Write a widget setting (--json parses the value)
   defaults                               Drop your changes and use the shipped layout
-  sync-glass                             No-op here; see the README for Hyprland blur
+  sync-glass                             Sync Hyprland blur rule with bar background
 USAGE
+}
+
+sync_glass() {
+  local flag="${XDG_STATE_HOME:-$HOME/.local/state}/quattro/toggles/hypr/bar-glass.lua"
+  local current
+  current=$(jq -r '.bar.background // "opaque"' "$(source_file)")
+  if [[ $current == glassy ]]; then
+    mkdir -p "$(dirname "$flag")"
+    local content='hl.config({ decoration = { blur = { enabled = true, size = 2, passes = 2 } } })
+hl.layer_rule({ match = { namespace = "quattro-bar" }, blur = true, ignore_alpha = 0.2 })'
+    if [[ ! -f $flag || $(<"$flag") != "$content" ]]; then
+      printf '%s\n' "$content" > "$flag"
+      [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null 2>&1 && hyprctl reload >/dev/null 2>&1 || true
+    fi
+  elif [[ -f $flag ]]; then
+    rm -f "$flag"
+    [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null 2>&1 && hyprctl reload >/dev/null 2>&1 || true
+  fi
 }
 
 command=${1:-}
@@ -43,6 +61,7 @@ case "$command" in
       fi
       case "$target" in opaque|glassy|none) ;; *) fail "unknown background: $target" ;; esac
       commit "$NORMALIZE | .bar.background = \$value" --arg value "$target"
+      sync_glass
     fi ;;
   get)
     (( $# == 2 )) || { usage >&2; exit 1; }
@@ -64,9 +83,10 @@ case "$command" in
     fi ;;
   defaults)
     rm -f "$CONFIG_FILE"
-    refresh_shell_config ;;
+    refresh_shell_config
+    sync_glass ;;
   sync-glass)
-    exit 0 ;;
+    sync_glass ;;
   ""|-h|--help)
     usage ;;
   *)

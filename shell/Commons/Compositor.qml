@@ -1,84 +1,18 @@
 pragma Singleton
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Hyprland
 
-// What the shell needs to know about the running compositor, in one place.
-//
-// Hyprland is read natively through Quickshell.Hyprland. Everything else (sway,
-// niri, or any compositor you wire up yourself) goes through
-// `quattro-compositor watch`, a long-running helper that prints one JSON line
-// every time its state changes:
-//
-//   {"focusedOutput":"DP-1","workspaces":[
-//      {"id":"1","label":"1","output":"DP-1","active":true,"focused":true,"occupied":true}]}
-//
-// A compositor with no workspace feed (plain dwl, say) simply reports none, and
-// the Workspaces widget hides itself. Everything else in the shell works from
-// Wayland protocols and does not depend on this file.
+// What the shell needs to know about Hyprland's workspaces and monitors, in
+// one place. Quattro runs on Hyprland only, so everything is read natively
+// through Quickshell.Hyprland.
 QtObject {
   id: root
 
-  // QUATTRO_COMPOSITOR overrides detection: hyprland | sway | niri | generic
-  readonly property string kind: {
-    var forced = Quickshell.env("QUATTRO_COMPOSITOR") || ""
-    if (forced !== "") return forced
-    if (Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE")) return "hyprland"
-    if (Quickshell.env("SWAYSOCK")) return "sway"
-    if (Quickshell.env("NIRI_SOCKET")) return "niri"
-    return "generic"
-  }
-
-  readonly property bool isHyprland: kind === "hyprland"
-
-  // Whether per-output scale and geometry are known to the shell ahead of Qt.
-  // Overlays wait for it on Hyprland and go ahead without it elsewhere.
-  readonly property bool hasMonitorInfo: isHyprland
-
-  // ---------------------------------------------------------------- stream
-
-  property var streamState: ({ focusedOutput: "", workspaces: [] })
-
-  function ingest(line) {
-    var text = String(line || "").trim()
-    if (text === "") return
-    try {
-      var parsed = JSON.parse(text)
-      if (parsed && Array.isArray(parsed.workspaces)) {
-        root.streamState = {
-          focusedOutput: String(parsed.focusedOutput || ""),
-          workspaces: parsed.workspaces
-        }
-      }
-    } catch (e) {
-      console.warn("quattro-compositor: unreadable line:", text.slice(0, 120))
-    }
-  }
-
-  property Process watcher: Process {
-    command: ["quattro-compositor", "watch"]
-    running: !root.isHyprland
-    stdout: SplitParser {
-      onRead: function(data) { root.ingest(data) }
-    }
-    // A helper that dies with an error is started again once the compositor is
-    // back. Exit code 0 means there is nothing to watch, and it stays off.
-    onExited: function(exitCode) {
-      if (exitCode !== 0 && !root.isHyprland) restartTimer.restart()
-    }
-  }
-
-  property Timer restartTimer: Timer {
-    interval: 3000
-    onTriggered: root.watcher.running = true
-  }
-
-  // --------------------------------------------------------------- hyprland
-
-  readonly property var hyprWorkspaces: {
+  // Every regular workspace (special and named-negative ones are left out) as
+  //   { id, label, output, active, focused, occupied }
+  readonly property var workspaces: {
     var out = []
-    if (!root.isHyprland) return out
     var values = Hyprland.workspaces.values
     for (var i = 0; i < values.length; i++) {
       var workspace = values[i]
@@ -96,27 +30,20 @@ QtObject {
     return out
   }
 
-  // --------------------------------------------------------------- uniform
-
-  readonly property var workspaces: isHyprland ? hyprWorkspaces : streamState.workspaces
   readonly property bool hasWorkspaces: workspaces.length > 0
 
   // The output that has focus, which is where a keyboard-summoned panel, the
-  // OSD or a notification deck belongs. Empty when the compositor does not say.
+  // OSD or a notification deck belongs. Empty until Hyprland has reported one.
   readonly property string focusedMonitorName: {
-    if (isHyprland) {
-      var monitor = Hyprland.focusedMonitor
-      return monitor ? String(monitor.name || "") : ""
-    }
-    return streamState.focusedOutput
+    var monitor = Hyprland.focusedMonitor
+    return monitor ? String(monitor.name || "") : ""
   }
 
   function workspacesOn(outputName) {
     var all = root.workspaces
     var outputs = {}
     for (var i = 0; i < all.length; i++) outputs[all[i].output] = true
-    // One output, or a compositor that does not say which workspace lives where:
-    // everything belongs to it.
+    // With a single output everything belongs to it.
     if (Object.keys(outputs).length <= 1) return all
     var mine = []
     for (var j = 0; j < all.length; j++)
@@ -129,6 +56,6 @@ QtObject {
   }
 
   function refreshMonitors() {
-    if (root.isHyprland) Hyprland.refreshMonitors()
+    Hyprland.refreshMonitors()
   }
 }

@@ -5,12 +5,11 @@
 
 case "${1:-}" in
   logout)
-    # Ask the compositor first, since it knows how to end its own session cleanly.
-    case "${QUATTRO_COMPOSITOR:-}${HYPRLAND_INSTANCE_SIGNATURE:+hyprland}${SWAYSOCK:+sway}${NIRI_SOCKET:+niri}" in
-      *hyprland*) hyprctl dispatch exit >/dev/null 2>&1 && exit 0 ;;
-      *sway*) swaymsg exit >/dev/null 2>&1 && exit 0 ;;
-      *niri*) niri msg action quit --skip-confirmation >/dev/null 2>&1 && exit 0 ;;
-    esac
+    # Ask Hyprland first, since it knows how to end its own session cleanly.
+    if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null 2>&1; then
+      [[ $(hyprctl dispatch exit 2>&1) == ok ]] && exit 0
+      [[ $(hyprctl dispatch 'hl.dsp.exit()' 2>&1) == ok ]] && exit 0
+    fi
     exec loginctl terminate-session "${XDG_SESSION_ID:-self}" ;;
   reboot) exec systemctl reboot ;;
   shutdown) exec systemctl poweroff ;;

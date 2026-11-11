@@ -4,16 +4,12 @@ import Quickshell
 import qs.Commons
 import qs.Ui
 
-// Workspace pills for the output this bar is on. The data comes from
-// Commons/Compositor.qml, so the same widget serves Hyprland (native), sway and
-// niri (through quattro-compositor) and anything you wire up yourself. On a
-// compositor that reports no workspaces the widget takes no space.
+// Workspace pills for the output this bar is on, backed by Commons/Compositor.qml.
 BarWidget {
   id: root
   moduleName: "quattro.workspaces"
 
-  // Numbered workspaces that always show, whether or not they exist yet. Only
-  // used where workspaces are created on demand (Hyprland, sway).
+  // Numbered workspaces that always show, whether or not they exist yet.
   readonly property int minimumSlots: Math.max(0, Math.round(Number(root.setting("slots", 5)) || 0))
 
   readonly property string outputName: {
@@ -28,9 +24,8 @@ BarWidget {
 
   readonly property var entries: {
     var list = Compositor.workspacesOn(root.outputName).slice()
-    var createdOnDemand = Compositor.kind === "hyprland" || Compositor.kind === "sway"
 
-    if (createdOnDemand && root.minimumSlots > 0) {
+    if (root.minimumSlots > 0) {
       var present = {}
       for (var i = 0; i < list.length; i++) present[String(list[i].id)] = true
       var outputs = {}

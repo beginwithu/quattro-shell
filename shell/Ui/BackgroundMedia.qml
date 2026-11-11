@@ -38,7 +38,7 @@ Item {
     Image {
       readonly property bool ready: status === Image.Ready
       readonly property bool failed: status === Image.Error
-      source: !root.constrainDecode || root.decodeSize.width > 0 ? root.imageUrl : ""
+      source: !root.constrainDecode || (root.decodeSize.width > 0 && root.decodeSize.height > 0) ? root.imageUrl : ""
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       cache: root.cached

@@ -1,9 +1,7 @@
 # Quattro shell
 
-The Quattro desktop runs in one long-lived Quickshell process. Its bar, panels, overlays, menus, and services are plugins hosted by `shell.qml`.
+The Quattro desktop shell runs in one long-lived Quickshell process under Hyprland. Its bar, panels, overlays, menus, and services are plugins hosted by `shell.qml`.
 
-- [Shell reference](../docs/quattro-shell.md) — plugin manifests, IPC, configuration, and shared UI contracts.
-- [Plugin user guide](../manual/32-shell-plugins.md) — install, configure, and clone plugins.
+- [Main README](../README.md) — installation, Hyprland setup, configuration, and themes.
 - [First-party plugins](plugins/README.md) — bundled plugin IDs, kinds, and entry points.
-- [Shell development guide](../agents/skills/shell-dev.md) — conventions for changing the desktop.
-- [Theming reference](../docs/theming.md) — theme tokens, templates, and generated configuration.
+- [Bar plugin and widgets](plugins/bar/README.md) — bar layout, built-in widgets, and custom widget API.

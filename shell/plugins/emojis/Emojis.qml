@@ -21,7 +21,6 @@ Item {
   property int selectedIndex: 0
   property bool cursorActive: false
   property var emojis: []
-  property var filteredEmojis: []
 
   // Shares the [menu] surface tokens — themes that style the menu also
   // style emojis. Selected-cell colors composed in the
@@ -43,7 +42,7 @@ Item {
 
   property int cellWidth: Math.max(Style.space(44), Style.font.display + Style.spacing.md)
   property int cellHeight: Math.max(Style.space(44), Style.font.display + Style.spacing.md)
-  property int columns: Math.floor((cardWidth - contentMargin * 2) / cellWidth)
+  property int columns: Math.max(1, Math.floor(resultGrid.width / cellWidth))
 
   function open(payloadJson) {
     root.dataRequested = true
@@ -77,7 +76,6 @@ Item {
 
   function rebuildDisplay() {
     var out = EmojiSearch.filterEmojis(root.emojis, root.filterText, 1000)
-    root.filteredEmojis = out
 
     displayModel.clear()
     for (var j = 0; j < out.length; j++) {
@@ -315,7 +313,7 @@ Item {
             anchors.centerIn: parent
             width: parent.width - 2 * root.contentMargin
             spacing: Style.space(8)
-            visible: displayModel.count === 0
+            visible: displayModel.count === 0 && root.emojis.length > 0
 
             Text {
               text: "󰈉"

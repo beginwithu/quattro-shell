@@ -121,6 +121,7 @@ QtObject {
     if (role === "foreground" || role === "text") return foreground || Commons.Color.foreground
     if (role === "accent") return accent || Commons.Color.accent
     if (role === "urgent") return urgent || Commons.Color.urgent
+    if (role === "muted") return Commons.Color.muted
     if (role === "background") return Commons.Color.background
     if (role === "transparent") return Qt.rgba(0, 0, 0, 0)
     return colorFromHex(s, fb)
@@ -371,9 +372,7 @@ QtObject {
   readonly property var easeOut: [0.23, 1.0, 0.32, 1.0, 1.0, 1.0]
 
   function refresh() {
-    // Rounding, gaps and the animations flag are read from Hyprland. Elsewhere the
-    // defaults above stand, and [shape] in shell.toml can change them.
-    if (!Compositor.isHyprland) return
+    // Rounding, gaps and the animations flag are read from Hyprland.
     hyprctlProc.running = true
     gapsOutProc.running = true
     animationsProc.running = true
@@ -409,16 +408,6 @@ QtObject {
   // shell.toml dict that Color already parsed. Called by Commons.Color.loadShell so
   // a single parse pass feeds both singletons.
   function applyShellValues(values) {
-    // Away from Hyprland nothing reports rounding or gaps, so shell.toml does:
-    //   [shape]
-    //   corner-radius = 6
-    //   gaps-out = 10
-    if (!Compositor.isHyprland) {
-      var radius = Number(values["shape.corner-radius"])
-      if (isFinite(radius) && radius >= 0) cornerRadius = Math.round(radius)
-      var gaps = Number(values["shape.gaps-out"])
-      if (isFinite(gaps) && gaps >= 0) gapsOut = Math.round(gaps)
-    }
     var fontOut = {}
     var barOut = {}
     var styleOut = {}

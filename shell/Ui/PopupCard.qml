@@ -1,7 +1,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
 
@@ -92,29 +91,6 @@ PopupWindow {
     active: root.open && root.triggerMode === "click"
     windows: root.anchorWindow ? [root, root.anchorWindow] : [root]
     onCleared: root.close()
-  }
-
-  // Every other compositor has no focus grab, so a transparent layer surface
-  // over the whole output catches the click that should dismiss the popup. It
-  // only exists while a click-mode popup is open.
-  LazyLoader {
-    active: !Commons.Compositor.isHyprland && root.open && root.triggerMode === "click"
-
-    PanelWindow {
-      screen: root.anchorWindow ? root.anchorWindow.screen : null
-      anchors { top: true; bottom: true; left: true; right: true }
-      color: "transparent"
-      exclusionMode: ExclusionMode.Ignore
-      WlrLayershell.layer: WlrLayer.Top
-      WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-      WlrLayershell.namespace: "quattro-popup-dismiss"
-
-      MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.AllButtons
-        onPressed: root.close()
-      }
-    }
   }
 
   anchor {

@@ -5,4 +5,10 @@ editor=${VISUAL:-${EDITOR:-}}
 if [[ -n $editor ]]; then
   exec setsid quattro-terminal $editor "$@"
 fi
-exec setsid xdg-open "$@" >/dev/null 2>&1
+if (( $# > 0 )); then
+  exec setsid xdg-open "$@" >/dev/null 2>&1
+fi
+for candidate in nvim vim nano vi; do
+  command -v "$candidate" >/dev/null 2>&1 && exec setsid quattro-terminal "$candidate"
+done
+exit 1

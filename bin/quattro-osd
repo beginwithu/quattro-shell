@@ -13,14 +13,18 @@ progress_text=""
 max="100"
 duration=""
 
+usage() {
+  echo "Usage: quattro-osd [-i|--icon <icon>] [-m|--message <text>] [-p|--progress <0-100>] [-d|--duration <ms>]"
+}
+
 while (($#)); do
   case $1 in
-    -i|--icon) icon="${2:-}"; shift 2 ;;
-    -m|--message) message="${2:-}"; shift 2 ;;
-    -p|--progress) progress="${2:-}"; shift 2 ;;
-    -d|--duration) duration="${2:-}"; shift 2 ;;
-    -h|--help) quattro osd --help; exit 0 ;;
-    *) echo "Unknown OSD option: $1" >&2; exit 1 ;;
+    -i|--icon) (($# >= 2)) || { usage >&2; exit 1; }; icon=$2; shift 2 ;;
+    -m|--message) (($# >= 2)) || { usage >&2; exit 1; }; message=$2; shift 2 ;;
+    -p|--progress) (($# >= 2)) || { usage >&2; exit 1; }; progress=$2; shift 2 ;;
+    -d|--duration) (($# >= 2)) || { usage >&2; exit 1; }; duration=$2; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown OSD option: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
 

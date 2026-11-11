@@ -29,7 +29,7 @@ PanelWindow {
   // compare in those units to tolerate floating point rounding.
   readonly property bool contentReady: shown && backingWindowVisible && !!targetScreen
     && width === targetScreen.width && height === targetScreen.height
-    && (!Commons.Compositor.hasMonitorInfo || (!!targetMonitor && Math.round(devicePixelRatio * 120) === Math.round(targetMonitor.scale * 120)))
+    && !!targetMonitor && Math.round(devicePixelRatio * 120) === Math.round(targetMonitor.scale * 120)
   property bool contentRevealed: false
 
   onContentReadyChanged: {

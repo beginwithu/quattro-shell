@@ -18,7 +18,6 @@ import "Security.js" as Security
 import "Layout.js" as Layout
 import "Markup.js" as Markup
 import "Delivery.js" as Delivery
-import "Icons.js" as Icons
 
 Item {
   id: service
@@ -1156,7 +1155,7 @@ Item {
     onTriggered: {
       var pending = keys
       keys = []
-      for (var i = 0; i < pending.length; i++) service.closeToast(pending[i], "activated")
+      service.closeToasts(pending, "activated")
     }
   }
 
@@ -1433,8 +1432,9 @@ Item {
 
     // Press button n (from 1) on the newest card.
     function invokeAction(n: int): string {
-      if (toasts.count === 0) return "none"
-      return service.runDeed(String(toasts.get(0).key), n - 1) ? "ok" : "none"
+      var key = service.newestLive()
+      if (!key) return "none"
+      return service.runDeed(key, n - 1) ? "ok" : "none"
     }
 
     // Hand the keyboard to the notifications until Escape or a choice.
@@ -1455,7 +1455,7 @@ Item {
       for (var i = 0; i < toasts.count; i++)
         if (String(toasts.get(i).summary || "").indexOf(needle) !== -1)
           keys.push(String(toasts.get(i).key))
-      for (var k = 0; k < keys.length; k++) service.closeToast(keys[k], "dismissed")
+      service.closeToasts(keys, "dismissed")
       return keys.length ? "ok" : "none"
     }
 
@@ -1464,12 +1464,14 @@ Item {
     // Open the deck as hovering would, or close it again. A headless session
     // has no pointer.
     function expand(): string {
+      var key = service.newestLive()
+      var at = service.rowIndexFor(key)
       if (service.expanded) {
         service.commit(function() {
           service.expanded = false; service.openDeck = ""; service.hoverKey = ""
         })
-      } else if (toasts.count > 0) {
-        var front = toasts.get(0)
+      } else if (at >= 0) {
+        var front = toasts.get(at)
         service.pointerEntered(Layout.groupKeyFor(front))
         service.hoverKey = String(front.key)
       } else {

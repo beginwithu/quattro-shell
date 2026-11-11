@@ -81,29 +81,31 @@ Item {
     // A terminal app goes through Quattro's TUI launcher, which names its
     // terminal window after the command (org.quattro.nvim), so the dock and
     // titlebars can tell Neovim from the terminal it runs in.
-    var command = root.terminalCommand(DesktopEntries.byId(id))
-    if (command.length > 0) {
-      Util.execDetached("quattro-launch-tui " + command.map(function(word) { return Util.shellQuote(word) }).join(" "))
+    var entry = DesktopEntries.byId(id)
+    var command = root.entryCommand(entry)
+    if (entry && entry.runInTerminal && command.length > 0) {
+      Util.execArgv(["quattro-launch-tui"].concat(command))
       return
     }
-    // Start gtk-launch inside a scope under app-graphical.slice so apps do not
-    // inherit wayland-wm@.service. Keeping gtk-launch as the desktop-entry
-    // resolver supports IDs with spaces and entries that UWSM rejects.
+    // Start gtk-launch inside a scope under app-graphical.slice when UWSM is
+    // active, falling back to plain gtk-launch or the entry's Exec command.
     // Keep the .desktop suffix or ids like org.telegram.desktop won't resolve.
-    Util.execDetached("uwsm-app -- gtk-launch " + Util.shellQuote(id + ".desktop"))
+    Quickshell.execDetached(["bash", "-lc",
+      'if command -v gtk-launch >/dev/null 2>&1; then uwsm-app -- gtk-launch "$1" 2>/dev/null || gtk-launch "$1"; elif (($# > 1)); then shift; exec "$@"; fi',
+      "bash", id + ".desktop"].concat(command))
   }
 
-  // The command a terminal entry runs, without the field codes it leaves for a
-  // launcher to fill in; empty for an entry that is not run in a terminal.
-  function terminalCommand(entry) {
-    if (!entry || !entry.runInTerminal) return []
+  // The command an entry runs, without the field codes it leaves for a
+  // launcher to fill in.
+  function entryCommand(entry) {
+    if (!entry) return []
     return (entry.command || []).filter(function(word) { return !/^%[a-zA-Z]$/.test(String(word)) })
   }
 
   function remove(desktopId, name) {
     var id = String(desktopId || "")
     if (!id) return
-    Util.execDetached(Util.shellQuote(root.quattroPath + "/bin/quattro-remove-launcher-entry") + " " + Util.shellQuote(id) + " " + Util.shellQuote(String(name || id)))
+    Util.execArgv([root.quattroPath + "/bin/quattro-remove-launcher-entry", id, String(name || id)])
   }
 
   function normalizeDesktopId(id) {
@@ -140,10 +142,11 @@ Item {
     // icons like "printer" instead of app icons. SVGs are emitted before PNGs
     // so the parser, which keeps the first hit per name, prefers scalable icons.
     return [
-      'dirs="$HOME/.icons $HOME/.local/share/icons";',
-      'IFS=":"; for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"; done; unset IFS;',
+      'dirs=("$HOME/.icons" "${XDG_DATA_HOME:-$HOME/.local/share}/icons");',
+      'IFS=":" read -ra data_dirs <<< "${XDG_DATA_DIRS:-/usr/local/share:/usr/share}";',
+      'for d in "${data_dirs[@]}"; do [[ -n $d ]] && dirs+=("$d/icons"); done;',
       '{',
-      '  for base in $dirs; do',
+      '  for base in "${dirs[@]}"; do',
       '    [[ -d $base ]] && find "$base" \\( -path "*/apps/*" -o -path "*/devices/*" \\) \\( -name "*.svg" -o -name "*.png" \\) 2>/dev/null;',
       '  done;',
       '  find /usr/share/pixmaps -maxdepth 1 \\( -name "*.svg" -o -name "*.png" \\) 2>/dev/null;',
@@ -162,10 +165,8 @@ Item {
       root.pendingIconIndex[name] = value
   }
 
-  function hiddenEntryScanCommand() {
-    var desktop = [Quickshell.env("XDG_CURRENT_DESKTOP"), Quickshell.env("XDG_SESSION_DESKTOP"), Quickshell.env("DESKTOP_SESSION")].filter(function(v) { return String(v || "").length > 0 }).join(":")
-    var script = root.quattroPath + "/shell/services/hidden-entries.sh"
-    return Util.shellQuote(script) + " " + Util.shellQuote(desktop)
+  function desktopNames() {
+    return [Quickshell.env("XDG_CURRENT_DESKTOP"), Quickshell.env("XDG_SESSION_DESKTOP"), Quickshell.env("DESKTOP_SESSION")].filter(function(v) { return String(v || "").length > 0 }).join(":")
   }
 
   function toplevelCount() {
@@ -208,7 +209,7 @@ Item {
   // trigger the next one, pinning a core at idle.
   Process {
     id: hiddenEntryScan
-    command: ["bash", "-c", root.hiddenEntryScanCommand()]
+    command: ["bash", root.quattroPath + "/shell/services/hidden-entries.sh", root.desktopNames()]
     stdout: SplitParser { onRead: function(line) { hiddenEntryOutput.text += line + "\n" } }
     onStarted: hiddenEntryOutput.text = ""
     onExited: root.loadDesktopHiddenEntries(hiddenEntryOutput.text)
@@ -237,7 +238,7 @@ Item {
     watchChanges: true
     printErrors: false
     onLoaded: root.loadConfiguredHides(text())
-    onFileChanged: root.loadConfiguredHides(text())
+    onFileChanged: reload()
     onLoadFailed: root.loadConfiguredHides("")
   }
 

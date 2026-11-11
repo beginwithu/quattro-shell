@@ -1,7 +1,7 @@
 {
   // Quattro menu definition (JSONC). IDs are object keys; dotted IDs imply hierarchy.
   // Fields: icon, label, action, aliases, title, when, checked, disabled, provider.
-  // Providers available here: apps, languages, power-profiles.
+  // Providers available here: apps, keybindings, languages, power-profiles.
   // Your own entries go in ~/.config/quattro/extensions/quattro-menu.jsonc.
 
   "apps": {"icon": "󰀻", "label": "Apps", "aliases": ["app", "applications"], "provider": "apps", "action": "quattro-shell quattro.dock apps"},
@@ -33,7 +33,7 @@
   "appearance.theme.white": {"icon": "󰸌", "label": "White", "checked": "[[ $(quattro-theme-set current) == \"white\" ]]", "action": "quattro-theme-set white"},
   "setup": {"icon": "", "label": "Setup", "aliases": ["settings"]},
   "update": {"icon": "", "label": "Restart", "aliases": ["restart", "refresh"]},
-  "keybindings": {"icon": "", "label": "Keybindings", "aliases": ["keys", "shortcuts", "binds"], "provider": "keybindings", "when": "command -v hyprctl >/dev/null"},
+  "keybindings": {"icon": "", "label": "Keybindings", "aliases": ["keys", "shortcuts", "binds"], "provider": "keybindings"},
   "system": {"icon": "", "label": "System", "aliases": ["power-menu"]},
   "system.lock": {"icon": "", "label": "Lock", "action": "quattro-system-lock"},
   "system.suspend": {"icon": "󰒲", "label": "Suspend", "action": "systemctl suspend"},
@@ -71,8 +71,8 @@
   "appearance.top-bar.background.glassy": {"icon": "󰂵", "label": "Glassy Bar", "checked": "[[ $(quattro-bar background) == \"glassy\" ]]", "action": "quattro-bar background glassy"},
   "appearance.top-bar.background.clear": {"icon": "󰝣", "label": "Clear Bar", "checked": "[[ $(quattro-bar background) == \"none\" ]]", "action": "quattro-bar background none"},
   "appearance.top-bar.indicators": {"icon": "󰋽", "label": "Bar Indicators"},
-  "appearance.top-bar.indicators.battery-percentage-on": {"icon": "󰁹", "label": "Show Battery %", "when": "compgen -G '/sys/class/power_supply/BAT*' >/dev/null && [[ $(quattro-bar get quattro.power showPercentage) != true ]]", "action": "quattro-shell quattro.power togglePercentage"},
-  "appearance.top-bar.indicators.battery-percentage-off": {"icon": "󰁹", "label": "Hide Battery %", "when": "compgen -G '/sys/class/power_supply/BAT*' >/dev/null && [[ $(quattro-bar get quattro.power showPercentage) == true ]]", "action": "quattro-shell quattro.power togglePercentage"},
+  "appearance.top-bar.indicators.battery-percentage-on": {"icon": "󰁹", "label": "Show Battery %", "when": "(compgen -G '/sys/class/power_supply/BAT*' >/dev/null || compgen -G '/sys/class/power_supply/*battery*' >/dev/null) && [[ $(quattro-bar get quattro.power showPercentage) != true ]]", "action": "quattro-shell quattro.power togglePercentage"},
+  "appearance.top-bar.indicators.battery-percentage-off": {"icon": "󰁹", "label": "Hide Battery %", "when": "(compgen -G '/sys/class/power_supply/BAT*' >/dev/null || compgen -G '/sys/class/power_supply/*battery*' >/dev/null) && [[ $(quattro-bar get quattro.power showPercentage) == true ]]", "action": "quattro-shell quattro.power togglePercentage"},
   "appearance.top-bar.indicators.clock": {"icon": "󰥔", "label": "Clock"},
   "appearance.top-bar.indicators.clock.sunday-24h": {"icon": "󰥔", "label": "Sunday 14:30", "when": "[[ $(quattro-bar position) != \"left\" && $(quattro-bar position) != \"right\" ]]", "checked": "[[ $(quattro-bar get quattro.clock format) == \"dddd HH:mm\" ]]", "action": "quattro-bar set quattro.clock format \"dddd HH:mm\""},
   "appearance.top-bar.indicators.clock.sunday-12h": {"icon": "󰥔", "label": "Sunday 2:30 PM", "when": "[[ $(quattro-bar position) != \"left\" && $(quattro-bar position) != \"right\" ]]", "checked": "[[ $(quattro-bar get quattro.clock format) == \"dddd h:mm AP\" ]]", "action": "quattro-bar set quattro.clock format \"dddd h:mm AP\""},

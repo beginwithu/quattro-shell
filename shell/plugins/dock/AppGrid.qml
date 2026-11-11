@@ -10,16 +10,8 @@ Item {
   id: root
 
   property var appLibrary: null
-  property var dock: null
 
   property bool opened: false
-  // While an app is dragged out toward the dock, the grid steps aside so the
-  // dock shows through, and the app's icon follows the pointer. The grid keeps
-  // the pointer for as long as the button is held, and tells the dock where it
-  // is.
-  property bool dragging: false
-  property var dragEntry: null
-  property point dragPoint
   // The app waiting on the user to confirm uninstalling it.
   property var uninstallEntry: null
   // The app whose menu is open, and where it opened.
@@ -67,28 +59,9 @@ Item {
   }
 
   function close() {
-    if (root.dragging && root.dock) root.dock.endExternalDrag()
     root.opened = false
     root.uninstallEntry = null
-    root.dragging = false
-    root.dragEntry = null
     root.menuEntry = null
-  }
-
-  function dragTo(entry, point) {
-    if (!root.dragging) {
-      root.menuEntry = null
-      root.dragEntry = entry
-      root.dragging = true
-    }
-    root.dragPoint = point
-    if (root.dock) root.dock.moveExternalDrag(panel.screen, point.x, point.y)
-  }
-
-  function dropDrag() {
-    var entry = root.dragEntry
-    if (entry && root.dock) root.dock.dropExternalDrag(panel.screen, root.dragPoint.x, root.dragPoint.y, String(entry.id || ""))
-    root.close()
   }
 
   function requestUninstall(entry) {
@@ -129,12 +102,14 @@ Item {
   }
 
   function setFilter(text) {
+    root.menuEntry = null
     root.filterText = text
     root.selectedIndex = 0
     root.rebuild()
   }
 
   function select(delta) {
+    root.menuEntry = null
     if (root.apps.length === 0) return
     root.selectedIndex = Math.max(0, Math.min(root.apps.length - 1, root.selectedIndex + delta))
     grid.positionViewAtIndex(root.selectedIndex, GridView.Contain)
@@ -144,8 +119,7 @@ Item {
     var entry = root.apps[index]
     if (!entry || !root.appLibrary) return
     root.close()
-    if (root.dock) root.dock.launchEntry(entry)
-    else root.appLibrary.launch(entry.id, root.appLibrary.entryName(entry))
+    root.appLibrary.launch(entry.id, root.appLibrary.entryName(entry))
   }
 
   FontMetrics {
@@ -173,12 +147,6 @@ Item {
     Rectangle {
       anchors.fill: parent
       color: Commons.Color.menu.scrim
-      opacity: root.dragging ? 0 : 1
-
-      Behavior on opacity {
-        id: scrimFade
-        NumberAnimation { duration: Style.duration(scrimFade.targetValue > 0 ? 150 : 100); easing.type: Easing.OutCubic }
-      }
     }
 
     MouseArea {
@@ -199,12 +167,6 @@ Item {
       color: Commons.Color.menu.background
       borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, root.borderWidth)
       padding: root.contentMargin
-      opacity: root.dragging ? 0 : 1
-
-      Behavior on opacity {
-        id: cardFade
-        NumberAnimation { duration: Style.duration(cardFade.targetValue > 0 ? 150 : 100); easing.type: Easing.OutCubic }
-      }
 
       MouseArea {
         anchors.fill: parent
@@ -320,9 +282,6 @@ Item {
               required property int index
               required property var modelData
               readonly property bool selected: index === root.selectedIndex
-              property point pressPoint
-              // A press that wanders is a drag in the making, not a click.
-              property bool moved: false
 
               width: root.cellWidth
               height: root.cellHeight
@@ -375,24 +334,8 @@ Item {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                // The grid would otherwise take a dragging press for a scroll.
-                preventStealing: true
-                onContainsMouseChanged: if (containsMouse && !root.dragging) root.selectedIndex = cell.index
-                onPressed: function(event) {
-                  cell.moved = false
-                  cell.pressPoint = Qt.point(event.x, event.y)
-                }
-                onPositionChanged: function(event) {
-                  if (!(pressedButtons & Qt.LeftButton)) return
-                  if (!cell.moved && Math.hypot(event.x - cell.pressPoint.x, event.y - cell.pressPoint.y) > Style.space(4)) cell.moved = true
-                  if (cell.moved) root.dragTo(cell.modelData, cell.mapToItem(panel.contentItem, event.x, event.y))
-                }
-                onReleased: function(event) {
-                  if (root.dragging && event.button === Qt.LeftButton) root.dropDrag()
-                }
-                onCanceled: if (root.dragging) root.close()
+                onContainsMouseChanged: if (containsMouse) root.selectedIndex = cell.index
                 onClicked: function(event) {
-                  if (cell.moved) return
                   if (event.button === Qt.RightButton) {
                     root.openMenu(cell.modelData, cell.mapToItem(panel.contentItem, event.x, event.y))
                     return
@@ -417,28 +360,14 @@ Item {
         }
       }
     }
-    // The dragged app's icon, under the pointer.
-    Image {
-      visible: root.dragging && !!root.dragEntry
-      x: root.dragPoint.x - width / 2
-      y: root.dragPoint.y - height / 2
-      width: root.iconSize
-      height: root.iconSize
-      sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
-      source: root.dragEntry && root.appLibrary ? root.appLibrary.iconSource(root.dragEntry.icon) : ""
-      fillMode: Image.PreserveAspectFit
-      smooth: true
-      mipmap: true
-    }
 
-    // Right-click on an app: open it, or keep it in the dock or take it out.
+    // Right-click on an app: open or uninstall it.
     BorderSurface {
       id: menu
 
       readonly property var entry: root.menuEntry
-      readonly property bool pinned: !!entry && !!root.dock && root.dock.isPinned(String(entry.id || ""))
 
-      visible: !!entry && !root.dragging
+      visible: !!entry
       width: Math.max(Style.space(160), menuColumn.implicitWidth) + padding * 2
       height: menuColumn.implicitHeight + padding * 2
       // Opens along the reading direction from the pointer.
@@ -462,17 +391,7 @@ Item {
           onTriggered: {
             var entry = menu.entry
             root.close()
-            if (entry && root.dock) root.dock.launchEntry(entry)
-            else if (entry && root.appLibrary) root.appLibrary.launch(entry.id, root.appLibrary.entryName(entry))
-          }
-        }
-
-        MenuRow {
-          visible: !!root.dock
-          text: menu.pinned ? Commons.I18n.t("dock.removeFromDock") : Commons.I18n.t("dock.keepInDock")
-          onTriggered: {
-            if (root.dock && menu.entry) root.dock.setPinned(String(menu.entry.id || ""), !menu.pinned)
-            root.menuEntry = null
+            if (entry && root.appLibrary) root.appLibrary.launch(entry.id, root.appLibrary.entryName(entry))
           }
         }
 

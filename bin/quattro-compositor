@@ -1,136 +1,66 @@
 #!/bin/bash
 
-# quattro:summary=Compositor helper: workspace feed and workspace focus for sway, niri or a custom command
-# quattro:args=<kind | watch | focus-workspace <id> [output] | focused-output | dpms on|off>
-#
-# watch prints one JSON line whenever workspace state changes:
-#   {"focusedOutput":"DP-1","workspaces":[{"id":"1","label":"1","output":"DP-1","active":true,"focused":true,"occupied":true}]}
-#
-# Custom compositors (dwl with an IPC patch, river, labwc, ...) set, in
-# ~/.config/quattro/env:
-#   QUATTRO_WORKSPACES_CMD='my-script'            # prints the JSON above, one line per change
-#   QUATTRO_WORKSPACE_FOCUS_CMD='my-focus {id} {output}'   # run to switch workspace
-
-detect() {
-  if [[ -n ${QUATTRO_COMPOSITOR:-} ]]; then echo "$QUATTRO_COMPOSITOR"
-  elif [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then echo hyprland
-  elif [[ -n ${SWAYSOCK:-} ]]; then echo sway
-  elif [[ -n ${NIRI_SOCKET:-} ]]; then echo niri
-  else echo generic
-  fi
-}
+# quattro:summary=Hyprland compositor helper: workspace focus, focused output, and DPMS
+# quattro:args=<focus-workspace <id> [output] | focused-output | dpms on|off>
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
-    echo "quattro-compositor: '$1' is required for $(detect)" >&2
+    echo "quattro-compositor: '$1' is required" >&2
     exit 2
   }
 }
 
-sway_state() {
-  local ws tree
-  ws=$(swaymsg -t get_workspaces -r 2>/dev/null) || return 1
-  tree=$(swaymsg -t get_tree -r 2>/dev/null) || return 1
-  # The tree can outgrow one argument, so it goes in on stdin.
-  jq -c --argjson ws "$ws" '
-    ([ .. | objects | select(.type? == "workspace") |
-       { key: .name, value: ((.nodes | length) + (.floating_nodes | length) > 0) } ]
-     | from_entries) as $busy
-    | { focusedOutput: ([$ws[] | select(.focused)] | first | .output // ""),
-        workspaces: [ $ws[] | { id: .name, label: .name, output: .output,
-                                active: .visible, focused: .focused,
-                                occupied: ($busy[.name] // false) } ] }' <<<"$tree"
+[[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] || {
+  echo "quattro-compositor: Hyprland is not running" >&2
+  exit 1
 }
 
-niri_state() {
-  local ws wins
-  ws=$(niri msg --json workspaces 2>/dev/null) || return 1
-  wins=$(niri msg --json windows 2>/dev/null) || wins='[]'
-  jq -c --argjson ws "$ws" '
-    (map(.workspace_id) | unique) as $busy
-    | { focusedOutput: ([$ws[] | select(.is_focused)] | first | .output // ""),
-        workspaces: [ $ws[] | { id: (.idx | tostring),
-                                label: (.name // (.idx | tostring)),
-                                output: (.output // ""),
-                                active: .is_active, focused: .is_focused,
-                                occupied: ([.id] | inside($busy)) } ] }' <<<"$wins"
-}
-
-watch() {
-  case "$(detect)" in
-    hyprland)
-      exit 0 ;;   # read natively by the shell
-    sway)
-      need swaymsg; need jq
-      sway_state
-      swaymsg -t subscribe -m '["workspace","window","output"]' 2>/dev/null | while read -r _; do sway_state; done
-      exit 1 ;;   # the stream ended: ask the shell to start us again
-    niri)
-      need niri; need jq
-      niri_state
-      niri msg --json event-stream 2>/dev/null | while read -r _; do niri_state; done
-      exit 1 ;;
-    *)
-      if [[ -n ${QUATTRO_WORKSPACES_CMD:-} ]]; then
-        eval "exec $QUATTRO_WORKSPACES_CMD"
-      fi
-      exit 0 ;;   # nothing to watch
-  esac
+dispatch() {
+  [[ $(hyprctl dispatch "$@" 2>&1) == ok ]]
 }
 
 focus_workspace() {
-  local id=$1 output=${2:-}
+  local id=${1:-}
   [[ -n $id ]] || exit 1
-  case "$(detect)" in
-    hyprland)
-      need hyprctl
-      # hyprlang configs take `workspace N`; Lua configs take a dispatch expression.
-      local reply
-      reply=$(hyprctl dispatch workspace "$id" 2>&1)
-      [[ $reply == ok ]] || hyprctl dispatch "hl.dsp.focus({ workspace = \"$id\" })" >/dev/null 2>&1 ;;
-    sway)
-      need swaymsg
-      swaymsg workspace "$id" >/dev/null ;;
-    niri)
-      need niri
-      niri msg action focus-workspace "$id" >/dev/null ;;
-    *)
-      if [[ -n ${QUATTRO_WORKSPACE_FOCUS_CMD:-} ]]; then
-        local cmd=${QUATTRO_WORKSPACE_FOCUS_CMD//\{id\}/$id}
-        cmd=${cmd//\{output\}/$output}
-        eval "$cmd"
-      fi ;;
-  esac
+  need hyprctl
+  local safe_id=${id//\\/\\\\}
+  safe_id=${safe_id//\"/\\\"}
+  # hyprlang configs take `workspace N`; Lua configs take a dispatch expression.
+  dispatch workspace "$id" || dispatch "hl.dsp.focus({ workspace = \"$safe_id\" })"
 }
 
 focused_output() {
-  case "$(detect)" in
-    hyprland) need hyprctl; need jq; hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.focused) | .name' | head -n1 ;;
-    sway) need swaymsg; need jq; swaymsg -t get_outputs -r 2>/dev/null | jq -r '.[] | select(.focused) | .name' | head -n1 ;;
-    niri) need niri; need jq; niri msg --json focused-output 2>/dev/null | jq -r '.name // empty' ;;
-    *) exit 1 ;;
-  esac
+  need hyprctl
+  need jq
+  hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.focused) | .name' | head -n1
 }
 
 dpms() {
-  case "$(detect):${1:-}" in
-    hyprland:off) hyprctl dispatch dpms off >/dev/null 2>&1 || hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })' >/dev/null 2>&1 ;;
-    hyprland:on)  hyprctl dispatch dpms on  >/dev/null 2>&1 || hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'  >/dev/null 2>&1 ;;
-    sway:off) swaymsg 'output * power off' >/dev/null ;;
-    sway:on)  swaymsg 'output * power on'  >/dev/null ;;
-    niri:off) niri msg action power-off-monitors >/dev/null ;;
-    niri:on)  niri msg action power-on-monitors  >/dev/null ;;
-    *:off) command -v wlopm >/dev/null 2>&1 && wlopm --off '*' ;;
-    *:on)  command -v wlopm >/dev/null 2>&1 && wlopm --on '*' ;;
+  need hyprctl
+  case "${1:-}" in
+    off)
+      dispatch dpms off || dispatch 'hl.dsp.dpms({ action = "disable" })'
+      ;;
+    on)
+      # Skip the dispatch when every active display is already lit: a redundant
+      # DPMS enable right after system resume forces another modeset, which blanks
+      # the panel for a beat (visible flash at the unlock screen).
+      if command -v jq >/dev/null 2>&1 && hyprctl -j monitors 2>/dev/null | jq -e 'length > 0 and all(.[]; .dpmsStatus == true)' >/dev/null 2>&1; then
+        return 0
+      fi
+      dispatch dpms on || dispatch 'hl.dsp.dpms({ action = "enable" })'
+      ;;
+    *)
+      echo "Usage: quattro-compositor dpms <on|off>" >&2
+      exit 1
+      ;;
   esac
   return 0
 }
 
 case "${1:-}" in
-  kind) detect ;;
   focused-output) focused_output ;;
   dpms) shift; dpms "$@" ;;
-  watch) watch ;;
   focus-workspace) shift; focus_workspace "$@" ;;
-  *) echo "Usage: quattro-compositor <kind | watch | focus-workspace <id> [output] | focused-output | dpms on|off>" >&2; exit 1 ;;
+  *) echo "Usage: quattro-compositor <focus-workspace <id> [output] | focused-output | dpms on|off>" >&2; exit 1 ;;
 esac

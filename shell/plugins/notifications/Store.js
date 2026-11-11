@@ -66,7 +66,7 @@ function snapshot(n, key, urgencyEnum) {
 
 // The fields an in-place update (replaces_id) must write through to the row.
 var ROLES = ["originalId", "senderPid", "execArgv", "execActions", "glyph", "transient", "app", "appIcon", "summary", "body", "rawBody", "bodyRich",
-             "bodyLine", "source", "groupKey", "image", "urgency",
+             "source", "groupKey", "image", "urgency",
              "expireTimeout", "duration", "ts",
              "code", "codes", "link"]
 
@@ -87,7 +87,7 @@ var RESTORE_GRACE = 20000
 // row goes through normalise() and carries every field.
 var SHAPE = {
   key: "", originalId: 0, senderPid: 0, execArgv: "", execActions: "", glyph: "", transient: false, app: "", appIcon: "", summary: "", body: "",
-  bodyRich: "", bodyLine: "", rawBody: "", source: "", groupKey: "", image: "",
+  bodyRich: "", rawBody: "", source: "", groupKey: "", image: "",
   code: "", codes: "", link: "",
   urgency: 1, expireTimeout: 0, duration: 0, ts: 0,
   restored: false
@@ -118,7 +118,6 @@ function normalise(row) {
   // Derived fields are recomputed, never trusted: a stored row from an older
   // build picks up today's rendering and grouping rules.
   out.bodyRich = Markup.render(out.body)
-  out.bodyLine = Markup.oneLine(out.body)
   out.groupKey = Markup.regroup(out)
   return out
 }
@@ -281,7 +280,7 @@ var REDACTED_SUMMARY = "Verification notification"
 var REDACTED_BODY = "[redacted]"
 
 function redacted(row) {
-  return !!row && row.summary === REDACTED_SUMMARY && (row.body === REDACTED_BODY || row.bodyLine === REDACTED_BODY)
+  return !!row && row.summary === REDACTED_SUMMARY && row.body === REDACTED_BODY
 }
 
 // A secret-bearing notification persists only as a placeholder, so encoded
@@ -299,7 +298,6 @@ function sanitiseForPersistence(row) {
     out.summary = REDACTED_SUMMARY
     out.body = REDACTED_BODY
     out.rawBody = out.body
-    out.bodyLine = out.body
     out.bodyRich = out.body
   }
   out.image = ""

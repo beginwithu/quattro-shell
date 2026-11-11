@@ -112,9 +112,6 @@ Item {
     return out
   }
 
-  // Buttons an Quattro sender asked for (--action), as commands the shell runs.
-  readonly property var execActions: Security.parseExecActions(row.execActions) || []
-
   // Every button, in Delivery.deeds' order, with the code labels translated.
   readonly property var allDeeds: {
     var out = Delivery.deeds(row, actions)

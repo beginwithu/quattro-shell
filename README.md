@@ -1,8 +1,8 @@
 # Quattro shell
 
-A Quickshell shell (bar, panels, notifications, launcher, OSD, lock screen, polkit agent)
-taken from Omarchy and detached from it. You do not need Omarchy: Quickshell and a few
-ordinary packages are enough. MIT licensed, original copyright David Heinemeier Hansson
+A Quickshell desktop shell for **Hyprland** (bar, panels, notifications, launcher, OSD, lock screen,
+polkit agent) taken from Omarchy and detached from it. You do not need Omarchy: Hyprland, Quickshell,
+and a few ordinary packages are enough. MIT licensed, original copyright David Heinemeier Hansson
 (see `LICENSE`).
 
 ## Install
@@ -13,8 +13,8 @@ cd ~/quattro-shell
 ./install.sh --lock                       # --lock installs the PAM files (sudo), once
 ```
 
-Start the shell from your compositor's autostart, not from anywhere else, because this
-script sets up `QUATTRO_PATH` and `PATH`:
+Start the shell from Hyprland's autostart, not from anywhere else, because this script sets up
+`QUATTRO_PATH` and `PATH` and requires an active Hyprland session:
 
 ```sh
 ~/quattro-shell/bin/quattro-launch-shell
@@ -29,42 +29,32 @@ Installer options: `--check` (dependency report only), `--no-deps` (do not insta
 `-y`/`--yes` (do not ask before installing), `--sleep-lock` (lock before suspend),
 `--theme NAME`, `--bin-dir DIR`, `--uninstall`. Commands are linked into `/usr/local/bin` (sudo asks
 once); the checkout must stay where it is, because the links point into it. Run it as your normal
-user, not as root. `--bin-dir ~/.local/bin` keeps the old per-user behaviour. Themes: `quattro-theme-set list` / `quattro-theme-set nord`.
+user, not as root. `--bin-dir ~/.local/bin` keeps the per-user behaviour. Themes:
+`quattro-theme-set list` / `quattro-theme-set nord`.
 
-`quattro-apply-lock` builds the lock screen's PAM service on
-`system-auth` (Arch, Fedora, openSUSE, Void) or `common-auth` (Debian, Ubuntu).
+`quattro-apply-lock` builds the lock screen's PAM service on `system-auth` (Arch, Fedora,
+openSUSE, Void) or `common-auth` (Debian, Ubuntu).
 
-## Compositor support
+## Hyprland configuration
 
-Quickshell itself runs on any wlroots-style compositor (dwl, sway, river, labwc, niri,
-Hyprland). Only these features depend on the compositor:
+Quattro runs exclusively on Hyprland and uses `Quickshell.Hyprland` natively for workspaces,
+monitors, focus grab, global shortcuts, keyboard layouts, and rounding/gap synchronisation.
 
-| Feature | Hyprland | sway | niri | dwl and others |
-|---|---|---|---|---|
-| Bar, panels, notifications, launcher, OSD, lock screen, polkit, tray | yes | yes | yes | yes |
-| Workspaces widget | yes (native) | yes (`swaymsg` + `jq`) | yes (`niri msg` + `jq`) | hidden unless you supply a feed |
-| Keyboard layout in the bar | yes | no | no | no |
-| Close popups by clicking outside | Hyprland focus grab | transparent click-catcher layer | same | same |
-| Global shortcuts (`GlobalShortcut`) | yes | no | no | no |
-| Corner radius and gaps read from the compositor | yes | set in `shell.toml` | same | same |
-
-On Hyprland, `default/hypr` holds the key bindings, window rules and settings. It is written for
-Hyprland's Lua configuration. In `~/.config/hypr/hyprland.lua`:
+`default/hypr` holds the key bindings, window rules, and settings for Hyprland's Lua
+configuration. In `~/.config/hypr/hyprland.lua`:
 
 ```lua
 dofile(os.getenv("HOME") .. "/quattro-shell/default/hypr/bootstrap.lua")
 require("default.hypr.quattro")
 ```
 
-The checkout is found from `QUATTRO_PATH`, or from where `bootstrap.lua` was loaded. Omarchy's
-bindings for things Quattro has no command for are left out: window popping, titlebars, dictation,
-lid and clamshell handling, workspace layouts, per-monitor workspaces, reminders, and its own
-set of preinstalled apps. Add your own after those two lines with
-`o.bind("SUPER + X", "Description", "command")`. Floating rules for TUIs match the app ids
-`org.quattro.*`, which `quattro-launch-tui` does not set yet, so they stay inert.
-`SUPER + K` opens a searchable list of the bindings Hyprland has loaded (Menu, Keybindings).
+The checkout is found from `QUATTRO_PATH`, or from where `bootstrap.lua` was loaded. Add your own
+bindings after those two lines with `o.bind("SUPER + X", "Description", "command")`. `SUPER + K`
+opens a searchable list of the bindings Hyprland has loaded (Menu → Keybindings).
 
-Outside Hyprland, bind keys in your compositor's own config to these commands:
+If you use a traditional `hyprland.conf` instead of Lua, start `quattro-launch-shell` via
+`exec-once` and bind keys to these commands (or to the `quattro:*` `GlobalShortcut` names listed
+in `default/quattro/shortcuts`):
 
 ```sh
 quattro-menu                                  # main menu
@@ -77,25 +67,7 @@ quattro-system-lock
 quattro-capture-screenshot [--full]           # also -screenrecording [--with-desktop-audio], -text (OCR), -qr
 ```
 
-For dwl, for example, add `SHCMD("quattro-menu")` bindings to `config.h` and start the shell with
-`dwl -s 'quattro-launch-shell'` or from your startup script.
-
-### Workspaces/tags on other compositors (dwl and similar)
-
-Set these in `~/.config/quattro/env`:
-
-```sh
-QUATTRO_WORKSPACES_CMD='your-script-that-prints-json'
-QUATTRO_WORKSPACE_FOCUS_CMD='your-focus-script {id}'
-```
-
-`QUATTRO_WORKSPACES_CMD` must keep running and print one JSON line whenever something changes:
-
-```json
-{"focusedOutput":"DP-1","workspaces":[{"id":"1","label":"1","output":"DP-1","active":true,"focused":true,"occupied":true}]}
-```
-
-The number of always-visible numbered slots on Hyprland and sway is set in `shell.json`:
+The number of always-visible numbered workspace slots is set in `shell.json`:
 `{ "id": "quattro.workspaces", "slots": 7 }`.
 
 ## Configuration
@@ -103,13 +75,9 @@ The number of always-visible numbered slots on Hyprland and sway is set in `shel
 - `~/.config/quattro/shell.json`: bar and widget layout. Defaults: `config/quattro/shell.json`.
   Change it from the menu (Appearance) or with `quattro-bar position bottom` and
   `quattro-bar set quattro.clock format HH:mm`.
-- `~/.config/quattro/shell.toml`: per-surface shape and colors. Away from Hyprland:
-  ```toml
-  [shape]
-  corner-radius = 6
-  gaps-out = 10
-  ```
-- `~/.config/quattro/env`: environment for the shell (`QUATTRO_COMPOSITOR`, `QUATTRO_TERMINAL`, ...).
+- `~/.config/quattro/shell.toml`: per-surface typography, spacing, controls, and colors. Corner
+  radius and gaps are read directly from Hyprland (`decoration:rounding` and `general:gaps_out`).
+- `~/.config/quattro/env`: environment for the shell (`QUATTRO_TERMINAL`, `QUATTRO_MENU_FONT`, ...).
 - Extra menu entries: `~/.config/quattro/extensions/quattro-menu.jsonc`.
 - Language: `quattro-language <code>` (`quattro-language list` shows the codes).
 
@@ -119,36 +87,19 @@ Removed because they are tied to Omarchy: agents, dev-gallery, tailscale, dropbo
 remote-session, reminders, speedtest, wifiqr, image-picker, background (wallpaper), monitor,
 the passwordless-sudo and screen-recording indicators, system updates, and Omarchy's theme
 system (replaced by `quattro-theme-set` with 23 bundled `colors.toml` files). Use your own
-wallpaper tool (swaybg, swww, ...).
+wallpaper tool (`hyprpaper`, `swww`, `swaybg`, ...).
 
-Replaced to make it universal:
+Adjusted for standalone Hyprland use:
 
 - The `omarchy` namespace became `quattro` throughout; `OMARCHY_PATH` is gone.
-- `Commons/Compositor.qml` and `bin/quattro-compositor` are the single place that knows
-  which compositor is running.
-- The Hyprland-bound dock became a plain launcher (`AppGrid` only).
+- The dock became a clean application launcher (`AppGrid` only).
 - The menu was rewritten (`default/quattro/quattro-menu.jsonc`): Apps, Trigger (clipboard, emoji,
   capture, toggles, share), Appearance (theme, bar), Setup (language, DNS, config), Restart, System.
   Entries keep Omarchy's ids, so the translations in `default/i18n` apply. Screen recording, text
   and QR capture, the color picker and LocalSend appear only when `wf-recorder`, `tesseract`,
-  `zbarimg`, `hyprpicker` or `localsend` is installed. Themes in `~/.config/quattro/themes` are
-  not listed in the menu; use `quattro-theme-set NAME` or add rows in your extensions file.
+  `zbarimg`, `hyprpicker` or `localsend` is installed.
 - Weather location: `geo.omarchy.org` was replaced by `quattro-geolocate` (ipwho.is, then
   ipapi.co), which sends your public IP. Set a place by hand with
   `quattro-weather-location --set Name lat,lon` to avoid it.
-- Night light: `quattro-nightlight` picks hyprsunset, wlsunset or gammastep.
+- Night light: `quattro-nightlight` drives `hyprsunset`.
 - Lock screen PAM files are generated from your distribution's own stack.
-
-## Untested / things to check
-
-1. The whole shell has not been run; QML errors cannot be caught here (no `qmllint`).
-2. The `jq` filters in `quattro-compositor` (sway/niri) have not been executed.
-3. The click-catcher layer that closes popups outside Hyprland may stack differently on some
-   compositors.
-4. `quattro-nightlight` with wlsunset/gammastep uses a fixed-temperature pattern that has not
-   been verified.
-5. On Hyprland with a Lua config, workspace switching tries `workspace N` and then the
-   `hl.dsp.focus` expression; the "glassy" blur is not configured automatically (add a
-   `layerrule` for the `quattro-bar` namespace yourself).
-6. On Hyprland the Workspaces widget no longer groups workspaces per monitor in blocks of ten
-   as Omarchy did.

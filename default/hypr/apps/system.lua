@@ -16,13 +16,10 @@ o.window(
 o.window("xdg-desktop-portal-gtk", { tag = "+floating-window" })
 o.window({
   class = "(sublime_text|DesktopEditors|org.gnome.Nautilus)",
-  title = "^(Open.*Files?|Open [F|f]older.*|Save.*Files?|Save.*As|Save|All Files|.*wants to [open|save].*|[C|c]hoose.*)",
+  title = "^(Open.*Files?|Open [Ff]older.*|Save.*Files?|Save.*As|Save|All Files|.*wants to (open|save).*|[Cc]hoose.*)",
 }, { tag = "+floating-window" })
 
 -- The About fastfetch layout needs more columns than the standard float provides.
--- This size only covers the first launch: quattro-launch-about measures the
--- rendered content, remembers the size that hugs it, and applies that as its own
--- rule before every later launch.
 o.window("org.quattro.about", { float = true })
 o.window("org.quattro.about", { center = true })
 o.window("org.quattro.about", { size = { 920, 480 } })

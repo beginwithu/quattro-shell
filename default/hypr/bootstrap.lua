@@ -5,6 +5,7 @@ local reload_prefixes = {
   "default.hypr",
   "hypr",
   "quattro.current.theme",
+  "quattro.toggles.hypr",
 }
 
 local function should_reload_module(module)
@@ -37,10 +38,15 @@ end
 
 -- Load generated state from ~/.local/state, user modules from ~/.config, and
 -- Quattro defaults from $QUATTRO_PATH.
-package.path = home
-  .. "/.local/state/?.lua;"
-  .. home
-  .. "/.config/?.lua;"
+local state_home = os.getenv("XDG_STATE_HOME")
+if not state_home or state_home == "" then state_home = home .. "/.local/state" end
+local config_home = os.getenv("XDG_CONFIG_HOME")
+if not config_home or config_home == "" then config_home = home .. "/.config" end
+
+package.path = state_home
+  .. "/?.lua;"
+  .. config_home
+  .. "/?.lua;"
   .. root
   .. "/?.lua;"
   .. package.path

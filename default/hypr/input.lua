@@ -2,8 +2,7 @@
 
 local keyboard = require("default.hypr.keyboard")
 
--- Layouts that can't type Latin letters. Keep in sync with the list in
--- etc/mkinitcpio.conf.d/quattro_hooks.conf.
+-- Layouts that can't type Latin letters.
 local non_latin_layouts =
   " af am ara bd bg by et ge gr il in iq ir kg kh kz la lk mk mm mn mv np rs ru sy th tj ua "
 -- us variants that can't type Latin letters either: Russian phonetic and Cherokee.
@@ -13,9 +12,14 @@ local vconsole = keyboard.selected()
 
 local kb_layout = vconsole.XKBLAYOUT or "us"
 local kb_variant = vconsole.XKBVARIANT or ""
--- Caps Lock is Caps Lock, and Shift + Caps Lock is the compose key. Stock XKB
--- has no such option, so Quattro defines it in /etc/xkb.
-local kb_options = "quattro:shift_caps_compose"
+local kb_options = vconsole.XKBOPTIONS or ""
+
+local function add_kb_option(options, option)
+  if options == "" then
+    return option
+  end
+  return options .. "," .. option
+end
 
 -- Hyprland resolves keybindings against the first entry in kb_layout, not the
 -- layout that's currently active, so Quattro's Latin-keysym bindings (SUPER + W
@@ -48,7 +52,7 @@ if non_latin_layouts:find(" " .. kb_layout:match("^[^,]*") .. " ", 1, true) then
   kb_layout = table.concat(layouts, ",")
   kb_variant = table.concat(variants, ",")
   -- Reach the original layout with Left Alt + Right Alt.
-  kb_options = kb_options .. ",grp:alts_toggle"
+  kb_options = add_kb_option(kb_options, "grp:alts_toggle")
 end
 
 -- Saved selections already include their Latin-leading layout. Keep the
@@ -56,7 +60,7 @@ end
 if not kb_options:find("grp:alts_toggle", 1, true) then
   for layout in kb_layout:gmatch("[^,]+") do
     if non_latin_layouts:find(" " .. layout .. " ", 1, true) then
-      kb_options = kb_options .. ",grp:alts_toggle"
+      kb_options = add_kb_option(kb_options, "grp:alts_toggle")
       break
     end
   end

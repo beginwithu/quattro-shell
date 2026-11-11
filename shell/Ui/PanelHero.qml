@@ -37,7 +37,7 @@ Item {
   Column {
     id: heroLabels
     anchors.left: iconLoader.right
-    anchors.leftMargin: Style.space(14)
+    anchors.leftMargin: iconLoader.item ? Style.space(14) : 0
     anchors.right: parent.right
     anchors.rightMargin: root.trailingInset
     anchors.verticalCenter: parent.verticalCenter
@@ -49,6 +49,7 @@ Item {
       width: parent.width
 
       Text {
+        id: titleText
         textFormat: Text.PlainText
         visible: root.title !== ""
         text: root.title
@@ -61,7 +62,7 @@ Item {
       }
 
       Item {
-        width: Math.max(0, parent.width - parent.children[0].width - detailPill.implicitWidth)
+        width: Math.max(0, parent.width - (titleText.visible ? titleText.width : 0) - (detailPill.visible ? detailPill.implicitWidth : 0))
         height: 1
       }
 

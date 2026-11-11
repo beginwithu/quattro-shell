@@ -125,7 +125,6 @@ Panel {
   property string focusSection: "dns"  // "header" | "portal" | "band" | "dns" | "wifi"
   property int headerIndex: 0
   readonly property bool canDisconnect: !!connectedWifiNetwork
-  readonly property bool headerHasDisconnect: false
   readonly property bool canShareWifi: info.type === "wifi" && canShareNetwork(connectedWifiNetwork)
   // The hero switch is the Wi-Fi radio, so it only exists when there is a
   // radio to switch. On a wired box it would otherwise sit there reading
@@ -195,7 +194,13 @@ Panel {
   }
 
   function clampHeaderIndex() {
-    var max = Math.max(0, headerActionCount - 1)
+    if (headerActionCount === 0) {
+      headerIndex = 0
+      if (focusSection === "header")
+        focusSection = hasCaptivePortal ? "portal" : (canSelectBand ? "band" : "dns")
+      return
+    }
+    var max = headerActionCount - 1
     if (headerIndex > max) headerIndex = max
     if (headerIndex < 0) headerIndex = 0
   }
@@ -576,14 +581,8 @@ Panel {
     checkConnectivity()
     if (scanWifi === undefined) scanWifi = false
     if (!detailsProc.running) detailsProc.running = true
-    if (!dnsProc.running) {
-      dnsProc.command = ["bash", "-c", root.dnsCommand("")]
-      dnsProc.running = true
-    }
-    if (!bandProc.running) {
-      bandProc.command = ["quattro-network-band"]
-      bandProc.running = true
-    }
+    if (!dnsProc.running) dnsProc.running = true
+    if (!bandProc.running) bandProc.running = true
     // A closed panel has no nearby-network list to fill, and bare refresh()
     // reaches here from action completion, timeouts and construction.
     if (opened && wifiDevice) {
@@ -596,14 +595,6 @@ Panel {
       }
     }
     syncWifiNetworks()
-  }
-
-  function formatHeaderSpeed(mbps) {
-    return Model.formatHeaderSpeed(mbps, Commons.I18n.formatNumber)
-  }
-
-  function formatHeaderFreq(mhz) {
-    return Model.formatHeaderFreq(mhz, Commons.I18n.formatNumber)
   }
 
   function headerDetail() {
@@ -717,10 +708,6 @@ Panel {
     return Model.wifiSectionTitle(wifiNetworks, index, Commons.I18n.t)
   }
 
-  function wifiIconFor(strength) {
-    return Model.wifiIconFor(strength)
-  }
-
   function updateDns(raw) {
     var value = String(raw || "").trim()
     dnsProvider = value || "DHCP"
@@ -782,7 +769,7 @@ Panel {
     // The panel stays open, so the choice can be seen taking hold and another
     // tried without reopening it.
     root.pendingDnsProvider = provider
-    actionProc.command = ["bash", "-c", root.dnsCommand(provider)]
+    actionProc.command = ["quattro-dns", provider]
     actionProc.running = true
   }
 
@@ -888,6 +875,10 @@ Panel {
       write(secret + "\n")
       secret = ""
     }
+    onExited: function(exitCode) {
+      if (exitCode !== 0 && root.actionKind === "connect")
+        root.failNetworkAction(root.networkForSsid(root.actionSsid), null)
+    }
   }
 
   function disconnect(network) {
@@ -963,6 +954,7 @@ Panel {
 
   Process {
     id: dnsProc
+    command: ["quattro-dns"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.updateDns(text)
@@ -971,6 +963,7 @@ Panel {
 
   Process {
     id: bandProc
+    command: ["quattro-network-band"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.updateBand(text)
@@ -984,11 +977,7 @@ Panel {
     interval: 4000
     repeat: true
     running: root.opened
-    onTriggered: {
-      if (bandProc.running) return
-      bandProc.command = ["quattro-network-band"]
-      bandProc.running = true
-    }
+    onTriggered: if (!bandProc.running) bandProc.running = true
   }
 
   // Action runner for DNS provider changes. Wi-Fi actions use the
@@ -1502,10 +1491,8 @@ Panel {
               }
 
               PanelToolTip {
-                visible: bandAutoSwitch.containsMouse
-                text: root.bandPinned
-                  ? Commons.I18n.t("network.bandAutoTooltip")
-                  : Commons.I18n.t("network.stayOnBand").arg(root.bandLabel(root.bandCurrent))
+                visible: bandAutoSwitch.containsMouse && text !== ""
+                text: root.bandTooltip(root.bandPinned ? "auto" : root.bandCurrent)
                 fontFamily: root.bar.fontFamily
               }
             }
@@ -1723,6 +1710,7 @@ Panel {
       if (!isHovered) return
       root.cursorActive = true
       root.focusSection = "band"
+      root.bandAutoFocused = false
       root.bandIndex = pill.slot
     }
   }

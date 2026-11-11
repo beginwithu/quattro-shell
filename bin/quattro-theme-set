@@ -23,6 +23,7 @@ if [[ ${1:-} == list || -z ${1:-} ]]; then
 fi
 
 name=$1
+[[ $name != */* && $name != "." && $name != ".." ]] || { echo "quattro-theme-set: invalid theme name '$name'" >&2; exit 1; }
 src=""
 for d in "${dirs[@]}"; do [[ -f $d/$name/colors.toml ]] && { src=$d/$name; break; }; done
 [[ -n $src ]] || { echo "quattro-theme-set: no theme named '$name'" >&2; exit 1; }

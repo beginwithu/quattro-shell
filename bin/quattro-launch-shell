@@ -1,23 +1,28 @@
 #!/bin/bash
 
-# quattro:summary=Start the Quattro shell, keep its log in the journal, and relaunch it if it dies
+# quattro:summary=Start the Quattro shell under Hyprland, keep its log in the journal, and relaunch it if it dies
 # quattro:hidden=true
 #
-# Run this from your compositor's autostart. It sets up the environment the
-# shell needs (QUATTRO_PATH, PATH with this checkout's bin/, ~/.config/quattro/env)
+# Run this from Hyprland's autostart. It sets up the environment the shell
+# needs (QUATTRO_PATH, PATH with this checkout's bin/, ~/.config/quattro/env)
 # so the compositor does not have to.
 
 QUATTRO_PATH=${QUATTRO_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}
 export QUATTRO_PATH
 case ":$PATH:" in *":$QUATTRO_PATH/bin:"*) ;; *) export PATH="$QUATTRO_PATH/bin:$PATH" ;; esac
 
-# Per-user environment: QUATTRO_COMPOSITOR, QUATTRO_TERMINAL, QUATTRO_WORKSPACES_CMD, ...
+# Per-user environment: QUATTRO_TERMINAL, QUATTRO_MENU_FONT, ...
 env_file="${XDG_CONFIG_HOME:-$HOME/.config}/quattro/env"
 if [[ -r $env_file ]]; then
   set -a
   # shellcheck disable=SC1090
   source "$env_file"
   set +a
+fi
+
+if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  echo "quattro-launch-shell: Hyprland is required (HYPRLAND_INSTANCE_SIGNATURE is not set)" >&2
+  exit 1
 fi
 
 command -v quickshell >/dev/null 2>&1 || { echo "quattro-launch-shell: quickshell is not installed" >&2; exit 1; }
@@ -45,13 +50,13 @@ run_shell() {
 }
 
 # Qt leaves through _exit() when the Wayland connection fails, so Quickshell
-# cannot relaunch itself then. Supervise those deaths, but stop trying once the
-# compositor's socket is gone: the session is ending.
+# cannot relaunch itself then. Supervise those deaths, but stop trying once
+# Hyprland's socket is gone: the session is ending.
 compositor_alive() {
   local socket=${WAYLAND_DISPLAY:-}
-  [[ -n $socket ]] || return 1
+  [[ -n $socket && -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] || return 1
   [[ $socket == /* ]] || socket="${XDG_RUNTIME_DIR:-/run/user/$UID}/$socket"
-  [[ -S $socket ]]
+  [[ -S $socket && -S "${XDG_RUNTIME_DIR:-/run/user/$UID}/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket.sock" ]]
 }
 
 terminating=0

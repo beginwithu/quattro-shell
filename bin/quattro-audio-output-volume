@@ -46,6 +46,7 @@ if [[ $action == "mute-toggle" ]]; then
   now=$(date +%s%3N)
   last=0
   [[ -r $debounce_file ]] && read -r last <"$debounce_file" || true
+  [[ $last =~ ^[0-9]+$ ]] || last=0
   if ((now - last < 250)); then
     exit 0
   fi
