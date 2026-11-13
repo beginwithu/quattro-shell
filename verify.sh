@@ -104,6 +104,9 @@ expected_files=(
   "$tmp_home/.local/state/quattro/current/theme/hyprland.lua"
   "$tmp_home/.local/state/quattro/current/theme/qtengine.colors"
   "$tmp_home/.local/state/quattro/current/theme/shell.toml"
+  "$tmp_home/.local/state/quattro/current/theme/gtk.css"
+  "$tmp_home/.config/gtk-4.0/gtk.css"
+  "$tmp_home/.local/state/quattro/current/icons/org.gnome.Nautilus.svg"
 )
 
 missing_deployed=0

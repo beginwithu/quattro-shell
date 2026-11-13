@@ -9,7 +9,7 @@ Custom Omarchy packages and how they are handled on standard Arch Linux:
 | `mise-bin` | `mise` (`extra`) | Package rename |
 | `ttf-jetbrains-mono-nerd-basic` | `ttf-jetbrains-mono-nerd` (`extra`) | Package rename |
 | `omarchy-power-profiles-daemon` | `power-profiles-daemon` (`extra`) | Package rename |
-| `folio` | `thunar` (`extra`) | `quattro-launch-files` falls back to `nautilus` / `dolphin` / `thunar` / `xdg-open` |
+| `folio` | `nautilus` (`extra`) | `quattro-launch-files` launches `nautilus` (with fallbacks) and syncs GTK4/Libadwaita theme colors |
 | `omasnap` | `grim` + `slurp` + `wl-clipboard` + `satty` (`extra`) | `quattro-capture-screenshot` falls back to `quattro-capture-region` |
 | `omacalc` | Optional (`qalculate-gtk` / `kcalc` / Python REPL) | Bound if installed, otherwise opens Python REPL |
 | `omawrite` | Removed (optional) | Not installed by default |

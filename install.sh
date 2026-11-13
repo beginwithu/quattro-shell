@@ -128,10 +128,12 @@ include "$INSTALL_DIR/default/xcompose"
 EOF
   fi
 
-  # Seed branding files for fastfetch & screensaver
+  # Update branding files for fastfetch & screensaver (preserving backups)
   mkdir -p "$HOME/.config/quattro/branding" "$HOME/.config/quattro/themes"
-  [[ -f $HOME/.config/quattro/branding/about.txt ]] || cp -a "$PROJECT_DIR/logo.txt" "$HOME/.config/quattro/branding/about.txt"
-  [[ -f $HOME/.config/quattro/branding/screensaver.txt ]] || cp -a "$PROJECT_DIR/icon.txt" "$HOME/.config/quattro/branding/screensaver.txt"
+  backup_path "$HOME/.config/quattro/branding/about.txt"
+  backup_path "$HOME/.config/quattro/branding/screensaver.txt"
+  cp -a "$PROJECT_DIR/logo.txt" "$HOME/.config/quattro/branding/about.txt"
+  cp -a "$PROJECT_DIR/icon.txt" "$HOME/.config/quattro/branding/screensaver.txt"
 
   # Seed Hyprland toggles directory (only flags.lua; individual toggles opt in when activated)
   mkdir -p "$HOME/.local/state/quattro/toggles/hypr"
@@ -212,6 +214,8 @@ EOF
   # Install default mimeapps if user doesn't have one yet
   if [[ ! -f $HOME/.config/mimeapps.list ]]; then
     cp -a "$PROJECT_DIR/default/applications/mimeapps.list" "$HOME/.config/mimeapps.list"
+  elif command -v xdg-mime >/dev/null 2>&1; then
+    xdg-mime default org.gnome.Nautilus.desktop inode/directory || true
   fi
 
   # Refresh font cache

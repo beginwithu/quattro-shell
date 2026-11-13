@@ -2,7 +2,7 @@
 
 # quattro:summary=Launch Files
 
-for fm in folio nautilus dolphin thunar pcmanfm nemo; do
+for fm in nautilus folio dolphin thunar pcmanfm nemo; do
   if command -v "$fm" >/dev/null 2>&1; then
     exec setsid uwsm-app -- "$fm" "$@"
   fi

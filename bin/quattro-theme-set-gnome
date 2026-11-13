@@ -1,17 +1,48 @@
 #!/bin/bash
 
-# quattro:summary=Apply the current theme to GNOME color mode and icon settings
+# quattro:summary=Apply the current theme to GNOME color mode, icons, and GTK4/GTK3 CSS
 # quattro:hidden=true
 
-# gsettings needs a user DBus session. During ISO installs this command can be
-# reached from arch-chroot while applying the initial Quattro theme; defer until
-# the user has a real session instead of emitting dconf warnings.
+THEME_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/quattro/current/theme"
+COLORS_FILE="$THEME_DIR/colors.toml"
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+# Sync GTK4 (Nautilus / Libadwaita) and GTK3 CSS via a managed import block so
+# quattro-theme-set-glass and user customizations in gtk.css stay intact.
+sync_gtk_css() {
+  local gtk_css="$1"
+  local theme_css="$THEME_DIR/gtk.css"
+  local import_line="/* quattro-theme begin */"
+  local end_line="/* quattro-theme end */"
+  local tmp
+
+  [[ -f $theme_css ]] || return 0
+  mkdir -p "${gtk_css%/*}"
+  tmp=$(mktemp)
+
+  {
+    printf '%s\n@import url("file://%s");\n%s\n' "$import_line" "$theme_css" "$end_line"
+    if [[ -f $gtk_css ]]; then
+      awk -v begin="$import_line" -v end="$end_line" '
+        $0 == begin { skip = 1; next }
+        skip && $0 == end { skip = 0; next }
+        skip { next }
+        { print }
+      ' "$gtk_css"
+    fi
+  } >"$tmp"
+
+  mv -f "$tmp" "$gtk_css"
+}
+
+sync_gtk_css "$CONFIG_HOME/gtk-4.0/gtk.css"
+sync_gtk_css "$CONFIG_HOME/gtk-3.0/gtk.css"
+
+# gsettings needs a user DBus session. During headless/chroot installs, defer
+# until the user has a real session instead of emitting dconf warnings.
 if [[ -z ${DBUS_SESSION_BUS_ADDRESS:-} ]]; then
   exit 0
 fi
-
-THEME_DIR=$HOME/.local/state/quattro/current/theme
-COLORS_FILE="$THEME_DIR/colors.toml"
 
 # quattro-theme-color resolves mode from colors.toml (`mode = "light"`), a
 # legacy light.mode marker beside it, or background luminance for user themes.

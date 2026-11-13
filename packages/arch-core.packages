@@ -34,7 +34,7 @@ woff2-font-awesome
 # Default terminal, browser, file manager
 chromium
 foot
-thunar
+nautilus
 
 # Core CLI tools used by shell & scripts
 bash-completion
