@@ -193,7 +193,7 @@ Item {
     title: root.connectionName
     leftLabel: I18n.t("speedtest.download")
     rightLabel: I18n.t("speedtest.upload")
-    runAgainTooltip: I18n.t("speedtest.measureAgainVia").arg("speed.quattro.org")
+    runAgainTooltip: I18n.t("speedtest.measureAgainVia").arg("speed.cloudflare.com")
     running: root.running
     leftValue: root.downloadValue
     rightValue: root.uploadValue

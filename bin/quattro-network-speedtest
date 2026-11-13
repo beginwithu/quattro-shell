@@ -4,17 +4,175 @@
 # quattro:group=network
 # quattro:args=[down|up]
 
-client=${QUATTRO_SPEEDTEST_BINARY:-/usr/lib/quattro/speedtest}
-
 if (( $# != 1 )) || [[ $1 != "down" && $1 != "up" ]]; then
   echo "Usage: quattro-network-speedtest [down|up]" >&2
   exit 2
-elif [[ ! -x $client ]]; then
-  echo "The speed test client is missing: install the quattro-speedtest package" >&2
-  exit 1
-else
-  # The client replaces this script, so the panel stopping it stops the
-  # transfers, and checks it still belongs to the panel that started it.
+fi
+
+client=${QUATTRO_SPEEDTEST_BINARY:-}
+if [[ -n $client && -x $client ]]; then
   export QUATTRO_SPEEDTEST_PARENT_PID=$PPID
   exec "$client" "$1"
 fi
+
+exec python3 - "$1" <<'PY'
+import collections
+import http.client
+import signal
+import ssl
+import sys
+import threading
+import time
+
+HOST = "speed.cloudflare.com"
+WORKERS = 4
+CHUNK_SIZE = 65536
+DOWN_BYTES = 25_000_000
+UP_BYTES = 1_048_576
+WARMUP_SECONDS = 0.8
+MEASURE_SECONDS = 5.0
+SAMPLE_INTERVAL = 0.2
+WINDOW_SECONDS = 1.5
+
+phase = sys.argv[1]
+stop_event = threading.Event()
+lock = threading.Lock()
+total_bytes = 0
+last_error = ""
+samples = collections.deque()
+
+def handle_signal(_signum, _frame):
+    stop_event.set()
+
+signal.signal(signal.SIGTERM, handle_signal)
+signal.signal(signal.SIGINT, handle_signal)
+
+ssl_ctx = ssl.create_default_context()
+upload_chunk = b"0" * CHUNK_SIZE
+
+def add_bytes(count):
+    global total_bytes
+    with lock:
+        total_bytes += count
+
+def set_error(err):
+    global last_error
+    with lock:
+        if not last_error:
+            last_error = str(err)
+
+def download_worker():
+    while not stop_event.is_set():
+        conn = None
+        try:
+            conn = http.client.HTTPSConnection(HOST, timeout=5, context=ssl_ctx)
+            conn.request("GET", f"/__down?bytes={DOWN_BYTES}", headers={"User-Agent": "quattro-speedtest/1.0"})
+            resp = conn.getresponse()
+            if resp.status >= 400:
+                set_error(f"HTTP {resp.status} from {HOST}")
+                return
+            while not stop_event.is_set():
+                data = resp.read(CHUNK_SIZE)
+                if not data:
+                    break
+                add_bytes(len(data))
+        except Exception as exc:
+            if not stop_event.is_set():
+                set_error(exc)
+            time.sleep(0.1)
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+def upload_worker():
+    while not stop_event.is_set():
+        conn = None
+        try:
+            conn = http.client.HTTPSConnection(HOST, timeout=5, context=ssl_ctx)
+            conn.putrequest("POST", "/__up")
+            conn.putheader("User-Agent", "quattro-speedtest/1.0")
+            conn.putheader("Content-Type", "application/octet-stream")
+            conn.putheader("Content-Length", str(UP_BYTES))
+            conn.endheaders()
+            sent = 0
+            while sent < UP_BYTES and not stop_event.is_set():
+                to_send = min(CHUNK_SIZE, UP_BYTES - sent)
+                conn.send(upload_chunk[:to_send])
+                sent += to_send
+                add_bytes(to_send)
+            if not stop_event.is_set():
+                resp = conn.getresponse()
+                resp.read()
+        except Exception as exc:
+            if not stop_event.is_set():
+                set_error(exc)
+            time.sleep(0.1)
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+worker_fn = download_worker if phase == "down" else upload_worker
+threads = [threading.Thread(target=worker_fn, daemon=True) for _ in range(WORKERS)]
+for t in threads:
+    t.start()
+
+start = time.monotonic()
+warmup_done = False
+measure_start = start
+warmup_bytes = 0
+
+while not stop_event.is_set():
+    time.sleep(SAMPLE_INTERVAL)
+    now = time.monotonic()
+    elapsed = now - start
+
+    with lock:
+        current_bytes = total_bytes
+
+    if not warmup_done:
+        if elapsed < WARMUP_SECONDS:
+            continue
+        warmup_done = True
+        measure_start = now
+        warmup_bytes = current_bytes
+        samples.append((now, current_bytes))
+        continue
+
+    samples.append((now, current_bytes))
+    cutoff = now - WINDOW_SECONDS
+    while len(samples) > 2 and samples[0][0] < cutoff:
+        samples.popleft()
+
+    base_t, base_b = samples[0]
+    dt = now - base_t
+    if dt >= 0.15:
+        mbps = ((current_bytes - base_b) * 8.0) / (dt * 1_000_000.0)
+        print(f"{max(0.0, mbps):.2f}", flush=True)
+
+    if now - measure_start >= MEASURE_SECONDS:
+        break
+
+stop_event.set()
+for t in threads:
+    t.join(timeout=0.5)
+
+with lock:
+    final_bytes = total_bytes
+    err = last_error
+
+if stop_event.is_set() and final_bytes == 0:
+    print(f"Network speed test failed ({err or 'no response from ' + HOST})", file=sys.stderr)
+    sys.exit(1)
+
+if warmup_done:
+    final_dt = max(0.2, time.monotonic() - measure_start)
+    measured = max(0, final_bytes - warmup_bytes)
+    if measured > 0:
+        print(f"{(measured * 8.0) / (final_dt * 1_000_000.0):.2f}", flush=True)
+PY

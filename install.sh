@@ -304,6 +304,12 @@ install_system_configs() {
 
   printf 'export QUATTRO_PATH="%s"\n' "$INSTALL_DIR" | sudo tee /etc/quattro.conf >/dev/null
 
+  # Install packaged root-owned DNS helper and passwordless sudoers rule for one-click DNS switching
+  sudo install -Dm755 -o root -g root "$PROJECT_DIR/bin/quattro-dns" /usr/bin/quattro-dns
+  if ! command -v visudo >/dev/null 2>&1 || visudo -cf "$PROJECT_DIR/etc/sudoers.d/quattro-dns" >/dev/null 2>&1; then
+    sudo install -Dm440 -o root -g root "$PROJECT_DIR/etc/sudoers.d/quattro-dns" /etc/sudoers.d/quattro-dns
+  fi
+
   # Ensure Quickshell lock screen PAM config (/etc/pam.d/quattro-lock-password) is installed
   if [[ -x $INSTALL_DIR/bin/quattro-apply-lock ]]; then
     sudo QUATTRO_PATH="$INSTALL_DIR" QUATTRO_INSTALL_USER="$USER" "$INSTALL_DIR/bin/quattro-apply-lock"
