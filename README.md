@@ -1,50 +1,40 @@
 # quattro-arch
 
-Hyprland desktop configuration and Quickshell environment adapted from Omarchy to run on a standard Arch Linux install without custom ISO tooling or external package repos. AI and agent integrations have been stripped out.
+Minimal Hyprland desktop configuration and Quickshell environment adapted from Omarchy to run on a standard Arch Linux install without custom ISO tooling, bloatware apps, or AI/agent integrations.
 
 ## Directory layout
 
-- `config/` - user dotfiles (`hypr`, `alacritty`, `kitty`, `ghostty`, `foot`, `btop`, `tmux`, `starship.toml`, etc.)
+- `config/` - user dotfiles (`hypr`, `foot`, `alacritty`, `kitty`, `ghostty`, `btop`, `tmux`, `starship.toml`, etc.)
 - `default/` - runtime defaults (bash setup, Hyprland Lua modules, theme templates, systemd user units, fonts)
 - `bin/` - `quattro-*` helper scripts
 - `shell/` - Quickshell configuration (bar, dock, launcher, panels, notifications, lockscreen)
 - `themes/` - 23 color schemes (`Tokyo Night`, `Catppuccin`, `Gruvbox`, `Kanagawa`, `Nord`, `Rose Pine`, etc.)
-- `applications/` - `.desktop` entries and icons
-- `etc/` - optional system files (`fastfetch`, `mpv`, `xkb`, `profile.d`, `sysctl.d`)
-- `packages/` - Arch package lists (`arch-core.packages`, `arch-optional.packages`, `aur.packages`) and [package-map.md](packages/package-map.md)
-- `install.sh` - deployment script (backs up overwritten configs to `~/.local/state/quattro-arch/backups/`)
+- `applications/` - core `.desktop` entries and icons
+- `etc/` - system config files (`fastfetch`, `mpv`, `xkb`, `profile.d`, etc.)
+- `packages/` - core Arch package list ([arch-core.packages](packages/arch-core.packages)) and [package-map.md](packages/package-map.md)
+- `AGENTS.md` - guide for working on `quattro-shell` (Quickshell architecture, IPC, theming, QML conventions)
+- `install.sh` - single-command installer (backs up overwritten configs to `~/.local/state/quattro-arch/backups/`)
 - `verify.sh` - checks script syntax, Lua compilation, JSON configs, pacman package names, and sandbox install
 
 ## Install
 
-Check dependencies and syntax first without touching the system:
+Check script syntax, Lua files, and package names without touching the system:
 
 ```bash
 ./verify.sh
 ```
 
-Preview what `install.sh` will copy:
+Run the installer (installs lean core Arch `[core]`/`[extra]` packages, runtime, user configs, initial `Tokyo Night` theme, and system integration):
 
 ```bash
-./install.sh --user-only --dry-run
+./install.sh
 ```
 
-Install configs and required Arch packages (`[core]` / `[extra]`):
-
-```bash
-./install.sh --user-only --with-packages
-```
-
-Useful flags:
-
-- `--with-optional` - include optional desktop/dev packages (`obsidian`, `libreoffice-fresh`, `docker`, etc.)
-- `--with-aur` - install AUR packages via `yay` (`qtengine`, `google-chrome`, etc.)
-- `--theme "<name>"` - pick an initial theme instead of `Tokyo Night`
-- `--system` - install system-wide session files (`/usr/local/share/wayland-sessions/quattro.desktop`, `/etc/profile.d/quattro.sh`, `/etc/quattro.conf`, `xkb`, `fastfetch`, `mpv`; prompts for `sudo`)
+Existing user files in `~/.config` and `~/.bashrc` are backed up to `~/.local/state/quattro-arch/backups/` before being overwritten.
 
 ## Starting the session
 
-Log in via SDDM (choose **Quattro (Hyprland uwsm)** if installed with `--system`), or start it from a TTY:
+Log in via SDDM (choose **Quattro (Hyprland uwsm)**), or start it from a TTY:
 
 ```bash
 uwsm start hyprland.desktop

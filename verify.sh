@@ -56,10 +56,10 @@ done
 echo "==> 4. Verifying Arch repository package lists..."
 if command -v pacman >/dev/null 2>&1; then
   missing=$(comm -23 \
-    <(grep -hvE '^[[:space:]]*(#|$)' "$PROJECT_DIR/packages/arch-core.packages" "$PROJECT_DIR/packages/arch-optional.packages" | sort -u) \
+    <(grep -hvE '^[[:space:]]*(#|$)' "$PROJECT_DIR/packages/arch-core.packages" | sort -u) \
     <(pacman -Ssq | sort -u))
   if [[ -z $missing ]]; then
-    pass "All packages in arch-core.packages and arch-optional.packages exist in pacman repos"
+    pass "All packages in arch-core.packages exist in pacman repos"
   else
     echo "$missing" | sed 's/^/  Missing package: /' >&2
     fail "Some packages were not found in pacman sync DB"
@@ -73,10 +73,10 @@ tmp_home=$(mktemp -d)
 trap 'rm -rf "$tmp_home"' EXIT
 
 if HOME="$tmp_home" XDG_CONFIG_HOME="$tmp_home/.config" XDG_DATA_HOME="$tmp_home/.local/share" XDG_STATE_HOME="$tmp_home/.local/state" \
-  "$PROJECT_DIR/install.sh" --user-only --theme "Tokyo Night" >/dev/null; then
-  pass "Sandbox install.sh --user-only succeeded"
+  QUATTRO_INSTALL_SANDBOX=1 "$PROJECT_DIR/install.sh" >/dev/null; then
+  pass "Sandbox install.sh succeeded"
 else
-  fail "Sandbox install.sh --user-only failed"
+  fail "Sandbox install.sh failed"
 fi
 
 expected_files=(

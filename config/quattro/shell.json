@@ -68,13 +68,9 @@
   "dock": {
     "position": "bottom",
     "pinned": [
-      "folio",
-      "quattro-browser",
       "quattro-terminal",
-      "omacalc",
-      "omawrite",
-      "hype",
-      "cliamp"
+      "quattro-browser",
+      "thunar"
     ]
   },
   "plugins": []

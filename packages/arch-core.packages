@@ -1,8 +1,7 @@
-# Core packages for running Quattro configs, Hyprland (Lua), Quickshell,
-# terminals, theming, and shell tools on pure Arch Linux.
-# Every package here is in official Arch [core]/[extra] repositories.
+# Lean core packages required for Quattro (Hyprland, Quickshell, theming, and shell scripts)
+# All packages exist in official Arch [core] / [extra] repositories.
 
-# Wayland compositor & desktop shell
+# Wayland compositor & shell
 hyprland
 hyprland-guiutils
 hyprpicker
@@ -21,7 +20,6 @@ gnome-keyring
 gnome-themes-extra
 libsecret
 noto-fonts
-noto-fonts-cjk
 noto-fonts-emoji
 qt6-base
 qt6-declarative
@@ -33,17 +31,17 @@ qt6ct
 ttf-jetbrains-mono-nerd
 woff2-font-awesome
 
-# Terminals (foot is default in hyprland-xdg-terminals.list; alacritty/kitty/ghostty also configured)
-alacritty
+# Default terminal, browser, file manager
+chromium
 foot
-ghostty
-kitty
+thunar
 
-# Shell & CLI tools
+# Core CLI tools used by shell & scripts
 bash-completion
 bat
 btop
 eza
+expac
 fastfetch
 fd
 fzf
@@ -52,37 +50,36 @@ gum
 imagemagick
 imv
 inotify-tools
+inxi
 jq
 lazygit
 less
 lua51
-mise
 neovim
+pacman-contrib
+python-gobject
 ripgrep
 socat
 starship
-tldr
 tmux
 tree-sitter-cli
 unzip
-vim
 zoxide
 
-# Capture, clipboard, audio, network, power
+# Capture, audio, network, bluetooth, power
 alsa-utils
 bluez
 bluez-utils
 brightnessctl
 ddcutil
+fcitx5
 ffmpeg
 ffmpegthumbnailer
 grim
-gvfs-mtp
 libvips
 mpv
 mpv-mpris
 networkmanager
-pamixer
 pipewire
 pipewire-alsa
 pipewire-jack
@@ -99,20 +96,3 @@ wireplumber
 wl-clipboard
 wtype
 zbar
-
-# File manager & calculator fallbacks
-nautilus
-qalculate-gtk
-
-# Input method
-fcitx5
-fcitx5-configtool
-fcitx5-gtk
-fcitx5-qt
-
-# Utilities needed by quattro-* scripts
-expac
-inxi
-man-db
-pacman-contrib
-python-gobject
