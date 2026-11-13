@@ -17,7 +17,8 @@ fi
 
 jq -r ".[].address" <<<"$clients" | \
   while read -r addr; do
-    hyprctl dispatch "hl.dsp.window.close({ window = \"address:$addr\" })" >/dev/null
+    hyprctl dispatch "hl.dsp.window.close({ window = \"address:$addr\" })" >/dev/null 2>&1 ||
+      hyprctl dispatch closewindow "address:$addr" >/dev/null 2>&1 || true
   done
 
 # Move to the focused monitor's first workspace

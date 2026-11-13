@@ -5,7 +5,22 @@
 # quattro:name=lock
 # quattro:examples=quattro system lock
 
-quattro-shell lock lock >/dev/null
+lock_result=$(quattro-shell lock lock 2>/dev/null || true)
+if [[ $lock_result != "ok" ]]; then
+  if command -v hyprlock >/dev/null 2>&1; then
+    hyprlock >/dev/null 2>&1 &
+  elif [[ $lock_result == "missing-pam" ]]; then
+    quattro-notification-send -u critical \
+      "Lock screen is not configured" \
+      "Run: sudo quattro-apply-lock (or re-run ./install.sh) to configure /etc/pam.d/quattro-lock-password." || true
+    exit 1
+  else
+    quattro-notification-send -u critical \
+      "Unable to lock screen" \
+      "quattro-shell lock did not succeed (${lock_result:-shell unavailable})." || true
+    exit 1
+  fi
+fi
 
 # Set keyboard layout to default (first layout)
 hyprctl switchxkblayout all 0 > /dev/null 2>&1

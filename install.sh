@@ -232,6 +232,44 @@ generate_initial_theme() {
   fi
 }
 
+cleanup_pacman_repos() {
+  local cleaned=0
+
+  # Remove any leftover [quattro] / [omarchy] custom repo block from /etc/pacman.conf without adding any repo
+  if [[ -f /etc/pacman.conf ]] && grep -qE '^[[:space:]]*\[(quattro|omarchy)\][[:space:]]*$|pkgs\.omarchy\.org' /etc/pacman.conf; then
+    echo "==> Removing leftover [quattro] repository from /etc/pacman.conf..."
+    sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
+    awk '
+      /^[[:space:]]*\[(quattro|omarchy)\][[:space:]]*$/ { skip = 1; next }
+      skip && /^[[:space:]]*\[/ { skip = 0 }
+      skip { next }
+      /pkgs\.omarchy\.org/ { next }
+      { print }
+    ' /etc/pacman.conf | sudo tee /etc/pacman.conf.tmp >/dev/null
+    sudo mv /etc/pacman.conf.tmp /etc/pacman.conf
+    sudo chmod 0644 /etc/pacman.conf
+    sudo rm -f /var/lib/pacman/sync/quattro.db* /var/lib/pacman/sync/omarchy.db*
+    cleaned=1
+  fi
+
+  # If a previous Channel action overwrote /etc/pacman.d/mirrorlist with an omarchy.org mirror, restore stock Arch mirror
+  if [[ -f /etc/pacman.d/mirrorlist ]] && grep -qE 'omarchy\.org' /etc/pacman.d/mirrorlist; then
+    echo "==> Restoring standard Arch Linux mirrorlist..."
+    if [[ -f /etc/pacman.d/mirrorlist.bak ]] && ! grep -qE 'omarchy\.org' /etc/pacman.d/mirrorlist.bak; then
+      sudo cp -f /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
+    else
+      sudo cp -f /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+      printf 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\n' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
+    fi
+    sudo chmod 0644 /etc/pacman.d/mirrorlist
+    cleaned=1
+  fi
+
+  if (( cleaned )); then
+    sudo pacman -Syy --noconfirm
+  fi
+}
+
 install_system_configs() {
   echo "==> Installing system-wide Arch integration (requires sudo)..."
   sudo mkdir -p \
@@ -259,33 +297,14 @@ install_system_configs() {
 
   printf 'export QUATTRO_PATH="%s"\n' "$INSTALL_DIR" | sudo tee /etc/quattro.conf >/dev/null
 
-  # Remove any leftover [quattro] / [omarchy] custom repo block from /etc/pacman.conf without adding any repo
-  if [[ -f /etc/pacman.conf ]] && grep -qE '^[[:space:]]*\[(quattro|omarchy)\][[:space:]]*$|pkgs\.omarchy\.org' /etc/pacman.conf; then
-    sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
-    awk '
-      /^[[:space:]]*\[(quattro|omarchy)\][[:space:]]*$/ { skip = 1; next }
-      skip && /^[[:space:]]*\[/ { skip = 0 }
-      skip { next }
-      /pkgs\.omarchy\.org/ { next }
-      { print }
-    ' /etc/pacman.conf | sudo tee /etc/pacman.conf.tmp >/dev/null
-    sudo mv /etc/pacman.conf.tmp /etc/pacman.conf
-    sudo chmod 0644 /etc/pacman.conf
-  fi
-
-  # If a previous Channel action overwrote /etc/pacman.d/mirrorlist with an omarchy.org mirror, restore stock Arch mirror
-  if [[ -f /etc/pacman.d/mirrorlist ]] && grep -qE 'omarchy\.org' /etc/pacman.d/mirrorlist; then
-    if [[ -f /etc/pacman.d/mirrorlist.bak ]] && ! grep -qE 'omarchy\.org' /etc/pacman.d/mirrorlist.bak; then
-      sudo cp -f /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
-    else
-      sudo cp -f /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
-      printf 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\n' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
-    fi
-    sudo chmod 0644 /etc/pacman.d/mirrorlist
+  # Ensure Quickshell lock screen PAM config (/etc/pam.d/quattro-lock-password) is installed
+  if [[ -x $INSTALL_DIR/bin/quattro-apply-lock ]]; then
+    sudo QUATTRO_PATH="$INSTALL_DIR" QUATTRO_INSTALL_USER="$USER" "$INSTALL_DIR/bin/quattro-apply-lock"
   fi
 }
 
 if ! $SANDBOX; then
+  cleanup_pacman_repos
   install_packages
 fi
 
