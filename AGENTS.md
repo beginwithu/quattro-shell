@@ -11,18 +11,21 @@ Notes for working on `quattro-shell` and the rest of this repository.
 - `shell/services/` - host-level QML/JS services (`PluginRegistry.qml`, `BarWidgetRegistry.qml`, `AppLibrary.qml`, `BackgroundIntro.qml`, `BackgroundSwitch.qml`, `BrightnessKeys.qml`, plus capability-scoped plugin facades `Plugin*Api.qml`).
 - `shell/plugins/` - first-party plugins loaded from `manifest.json`:
   - `bar/` (`quattro.bar`) and `bar/widgets/` / `bar/indicators/`
-  - `dock/`, `menu/`, `launcher` (dock app grid), `osd/`, `lock/`, `notifications/`, `background/`, `clipboard/`, `emojis/`, `image-picker/`, `polkit/`, `reminders/`
+  - `dock/`, `menu/`, `osd/`, `lock/`, `notifications/`, `background/`, `clipboard/`, `dev-gallery/`, `emojis/`, `image-picker/`, `polkit/`, `reminders/`
   - `panels/` (`audio`, `bluetooth`, `clock`, `disk-speedtest`, `dropbox`, `elsewhen`, `monitor`, `network`, `power`, `speedtest`, `tailscale`, `weather`, `wifiqr`)
   - `services/` (`battery`, `idle`, `media`, `nightlight`, `remote-session`)
 - `config/quattro/shell.json` - default shell layout (`bar`, `dock`, `idle`, `plugins`). User overrides live at `~/.config/quattro/shell.json` (canonical once created; no deep-merge).
 - `default/quattro/quattro-menu.jsonc` - Quattro menu tree definition read by `shell/plugins/menu/`.
 - `default/quattro/shortcuts` - global Hyprland shortcuts registered by the shell (`menu <route>`, `panel <plugin-id>`, `audio ...`, `brightness ...`, `ipc <target>.<method>`).
-- `default/themed/shell.toml.tpl` - template rendering `~/.local/state/quattro/current/theme/shell.toml` and `colors.toml` via `bin/quattro-theme-set`.
+- `default/themed/` - templates (`shell.toml.tpl`, `gtk.css.tpl`, terminal/btop/hyprland templates) rendered into `~/.local/state/quattro/current/theme/` and synced to GTK4 (`~/.config/gtk-4.0/gtk.css`) and Nautilus icon (`org.gnome.Nautilus.svg`) via `bin/quattro-theme-set`.
+- `default/sddm/` & `etc/sddm.conf.d/` - SDDM Wayland greeter config (`start-hyprland -- --config /usr/share/sddm/hyprland.lua`) and minimal `quattro` Qt6 QML theme (`Main.qml`, fallback to `UserModel` `Qt.UserRole + 1` when `lastUser` is empty).
+- `install.sh` & `packages/arch-core.packages` - single-command installer using official Arch `[core]` / `[extra]` packages only (including `sddm`, `hyprland`, `quickshell`, `uwsm`, `nautilus`, `foot`, `chromium`). Overwrites user configs directly without backups, strips any leftover `[quattro]`/`[omarchy]` pacman repo or `omarchy.org` mirror entries, installs `/usr/bin/quattro-dns` + `/etc/sudoers.d/quattro-dns`, configures `/etc/pam.d/quattro-lock-password`, and enables (plus starts from TTY) `sddm.service`.
 
 ## Runtime & paths
 
 - `QUATTRO_PATH` defaults to `~/.local/share/quattro` (deployed by `./install.sh`) and falls back to `/usr/share/quattro`.
 - Never hardcode `/home/...` or `/usr/share/omarchy`; read `shell.quattroPath` (from `Quickshell.env("QUATTRO_PATH")`) or `$QUATTRO_PATH` in scripts.
+- `bin/quattro-version-channel` reports `arch-standalone`; package updates and installs rely solely on standard Arch repositories without custom repo DBs.
 - Quickshell's built-in file watcher is disabled at launch (`QS_DISABLE_FILE_WATCHER=1` in `bin/quattro-launch-shell`). After editing QML inside `shell/`:
   - Reload user/plugin code via `quattro-shell shell rescanPlugins` (or `quattro-restart-shell` for host changes in `shell.qml`, `Commons/`, `Ui/`, or `services/`).
   - Reload `shell.json` via `quattro-shell shell reloadConfig`.
@@ -78,9 +81,15 @@ quattro-shell shell debugBarGeometry
 
 ## Scope & verification
 
-- This repo is a standalone Arch Linux setup without AI/agent desktop integrations (`opencode`, `herdr`, `quattro-agent*`, AI dictation, crash-watch AI hooks have been removed) and without bloat preinstalled webapps or AUR requirements. Keep new changes free of those dependencies.
+- This repo is a standalone Arch Linux setup without AI/agent desktop integrations (`opencode`, `herdr`, `quattro-agent*`, AI dictation, crash-watch AI hooks have been removed), without custom pacman repos/channel switchers (`quattro.db`), and without bloat preinstalled webapps or AUR requirements. Keep new changes free of those dependencies.
+- Core defaults & integrations to preserve:
+  - Nautilus (`org.gnome.Nautilus.desktop`) as the default file manager (`inode/directory`), themed via `gtk-4.0/gtk.css` and dynamic icon rendering.
+  - Built-in Python Cloudflare client in `bin/quattro-network-speedtest` for the speedtest panel (no external `quattro-speedtest` package dependency).
+  - Passwordless DNS switching in `shell/plugins/panels/network/` via packaged `/usr/bin/quattro-dns` and `/etc/sudoers.d/quattro-dns`.
+  - Arch branding (`icon.png`, `logo.svg`, `icon.txt`, `logo.txt`) and `QUATTRO` pixel logo (`default/sddm/quattro/logo.png`, `default/plymouth/logo.png`).
+  - Direct overwrite behavior in `install.sh` (no backup directory or `.bak` generation) and SDDM Wayland login provisioning.
 - After editing scripts, Lua configs, JSON configs, or shell files, run:
   ```bash
   ./verify.sh
   ```
-- `./verify.sh` checks Bash/Python syntax, `luac -p`, JSON validity, `pacman -Ssq` resolution for `packages/arch-core.packages`, and an isolated `QUATTRO_INSTALL_SANDBOX=1` run of `./install.sh`.
+- `./verify.sh` checks Bash/Python syntax, `luac -p`, JSON validity, `pacman -Ssq` resolution for `packages/arch-core.packages`, and an isolated `QUATTRO_INSTALL_SANDBOX=1` run of `./install.sh`. Note that `shell/*.qml`, `default/sddm/quattro/Main.qml`, and root/`systemctl`/`sudo` steps in `install.sh` are not exercised by `./verify.sh` and must be tested in a live/VM session.
