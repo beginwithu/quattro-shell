@@ -30,18 +30,7 @@ fi
 
 THEME="Tokyo Night"
 INSTALL_DIR="$HOME/.local/share/quattro"
-BACKUP_DIR="$HOME/.local/state/quattro-arch/backups/$(date +%Y%m%d-%H%M%S)"
 BIN_LINK_DIR="$HOME/.local/bin"
-
-backup_path() {
-  local target="$1"
-  if [[ -e $target || -L $target ]]; then
-    local rel="${target#$HOME/}"
-    local dest="$BACKUP_DIR/$rel"
-    mkdir -p "$(dirname "$dest")"
-    cp -a "$target" "$dest"
-  fi
-}
 
 install_packages() {
   local -a pkgs=()
@@ -76,7 +65,7 @@ install_runtime() {
 }
 
 install_user_configs() {
-  echo "==> Deploying ~/.config from $PROJECT_DIR/config (backups -> $BACKUP_DIR)..."
+  echo "==> Deploying ~/.config from $PROJECT_DIR/config..."
   mkdir -p "$HOME/.config"
 
   local entry name target
@@ -92,12 +81,10 @@ install_user_configs() {
       while IFS= read -r -d '' src_file; do
         local rel="${src_file#$entry/}"
         local dst_file="$target/$rel"
-        backup_path "$dst_file"
         mkdir -p "$(dirname "$dst_file")"
         cp -a "$src_file" "$dst_file"
       done < <(find "$entry" \( -type f -o -type l \) -print0)
     else
-      backup_path "$target"
       cp -a "$entry" "$target"
     fi
   done
@@ -115,7 +102,6 @@ install_user_configs() {
   fi
 
   # Seed ~/.bashrc
-  backup_path "$HOME/.bashrc"
   cp -a "$PROJECT_DIR/default/bashrc" "$HOME/.bashrc"
 
   # Seed ~/.XCompose if missing
@@ -128,10 +114,8 @@ include "$INSTALL_DIR/default/xcompose"
 EOF
   fi
 
-  # Update branding files for fastfetch & screensaver (preserving backups)
+  # Update branding files for fastfetch & screensaver
   mkdir -p "$HOME/.config/quattro/branding" "$HOME/.config/quattro/themes"
-  backup_path "$HOME/.config/quattro/branding/about.txt"
-  backup_path "$HOME/.config/quattro/branding/screensaver.txt"
   cp -a "$PROJECT_DIR/logo.txt" "$HOME/.config/quattro/branding/about.txt"
   cp -a "$PROJECT_DIR/icon.txt" "$HOME/.config/quattro/branding/screensaver.txt"
 
@@ -193,13 +177,11 @@ EOF
   cp -a "$PROJECT_DIR/etc/xkb/symbols/quattro" "$HOME/.config/xkb/symbols/quattro"
 
   if [[ ! -f $HOME/.config/fastfetch/config.jsonc ]]; then
-    backup_path "$HOME/.config/fastfetch/config.jsonc"
     mkdir -p "$HOME/.config/fastfetch"
     cp -a "$PROJECT_DIR/etc/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
   fi
 
   if [[ ! -f $HOME/.config/mpv/mpv.conf ]]; then
-    backup_path "$HOME/.config/mpv/mpv.conf"
     mkdir -p "$HOME/.config/mpv"
     cp -a "$PROJECT_DIR/etc/mpv/mpv.conf" "$HOME/.config/mpv/mpv.conf"
   fi
@@ -245,7 +227,6 @@ cleanup_pacman_repos() {
   # Remove any leftover [quattro] / [omarchy] custom repo block from /etc/pacman.conf without adding any repo
   if [[ -f /etc/pacman.conf ]] && grep -qE '^[[:space:]]*\[(quattro|omarchy)\][[:space:]]*$|pkgs\.omarchy\.org' /etc/pacman.conf; then
     echo "==> Removing leftover [quattro] repository from /etc/pacman.conf..."
-    sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
     awk '
       /^[[:space:]]*\[(quattro|omarchy)\][[:space:]]*$/ { skip = 1; next }
       skip && /^[[:space:]]*\[/ { skip = 0 }
@@ -265,7 +246,6 @@ cleanup_pacman_repos() {
     if [[ -f /etc/pacman.d/mirrorlist.bak ]] && ! grep -qE 'omarchy\.org' /etc/pacman.d/mirrorlist.bak; then
       sudo cp -f /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
     else
-      sudo cp -f /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
       printf 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\n' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
     fi
     sudo chmod 0644 /etc/pacman.d/mirrorlist

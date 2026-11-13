@@ -13,7 +13,7 @@ Minimal Hyprland desktop configuration and Quickshell environment adapted from O
 - `etc/` - system config files (`fastfetch`, `mpv`, `xkb`, `profile.d`, etc.)
 - `packages/` - core Arch package list ([arch-core.packages](packages/arch-core.packages)) and [package-map.md](packages/package-map.md)
 - `AGENTS.md` - guide for working on `quattro-shell` (Quickshell architecture, IPC, theming, QML conventions)
-- `install.sh` - single-command installer (backs up overwritten configs to `~/.local/state/quattro-arch/backups/`)
+- `install.sh` - single-command installer (deploys runtime, configs, theme, and system integration)
 - `verify.sh` - checks script syntax, Lua compilation, JSON configs, pacman package names, and sandbox install
 
 ## Install
@@ -30,7 +30,7 @@ Run the installer (installs lean core Arch `[core]`/`[extra]` packages, runtime,
 ./install.sh
 ```
 
-Existing user files in `~/.config` and `~/.bashrc` are backed up to `~/.local/state/quattro-arch/backups/` before being overwritten.
+Existing user files in `~/.config` and `~/.bashrc` are overwritten directly without creating backups.
 
 ## Starting the session
 
