@@ -22,6 +22,7 @@ Item {
   // whenever the app list changes, so newly installed apps get their icon live.
   property var iconIndex: ({})
   property var pendingIconIndex: ({})
+  property bool iconIndexReady: false
   property bool iconRescanQueued: false
 
   // Quattro's own app icons are linked into the user's icon dir and redrawn in
@@ -59,9 +60,19 @@ Item {
     return AppSearch.entrySubtext(entry)
   }
 
+  function hasResolvedIcon(entry) {
+    var value = String((entry && entry.icon) || "").trim()
+    if (value.length === 0) return false
+    if (value.indexOf("file://") === 0 || value.indexOf("image://") === 0 || value.charAt(0) === "/") return true
+    var base = value.replace(/\.(png|svg|xpm)$/i, "")
+    if (root.iconIndex[value] || (base && root.iconIndex[base])) return true
+    return Quickshell.iconPath(value, true).length > 0
+  }
+
   function isHiddenEntry(entry) {
     var id = String((entry && entry.id) || "")
-    return root.configuredHiddenEntryIds[id] === true || root.desktopHiddenEntryIds[id] === true
+    if (root.configuredHiddenEntryIds[id] === true || root.desktopHiddenEntryIds[id] === true) return true
+    return root.iconIndexReady && !root.hasResolvedIcon(entry)
   }
 
   function sortedEntries(query) {
@@ -76,7 +87,8 @@ Item {
     if (value.charAt(0) === "/") return Util.fileUrl(value)
     // Prefer the context-limited app/device index. An unconstrained themed
     // lookup can resolve an app name such as "zoom" to an action icon instead.
-    var found = root.iconIndex[value]
+    var base = value.replace(/\.(png|svg|xpm)$/i, "")
+    var found = root.iconIndex[value] || (base ? root.iconIndex[base] : undefined)
     var revision = root.themeRevision
     if (found) return Util.fileUrl(found) + (found.indexOf(root.userIconsPath) === 0 ? "?theme=" + revision : "")
     var themed = Quickshell.iconPath(value, true)
@@ -253,6 +265,8 @@ Item {
     // newly found icons appear without rebuilding the list.
     onExited: {
       root.iconIndex = root.pendingIconIndex
+      root.iconIndexReady = true
+      root.appsChanged()
       if (root.iconRescanQueued) {
         root.iconRescanQueued = false
         running = true

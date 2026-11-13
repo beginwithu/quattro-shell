@@ -213,10 +213,10 @@
     "label": "Glassy Windows"
   },
   "appearance.windows.one-window-ratio-on": {
-    "label": "1-Window Ratio On"
+    "label": "Enable 1-Window Ratio"
   },
   "appearance.windows.one-window-ratio-off": {
-    "label": "1-Window Ratio Off"
+    "label": "Disable 1-Window Ratio"
   },
   "appearance.branding": {
     "label": "Branding"

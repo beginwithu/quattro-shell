@@ -30,6 +30,7 @@ is_hidden_desktop_file() {
   local hidden=false
   local only_show_in=
   local not_show_in=
+  local icon=
   local line key value
 
   while IFS= read -r line || [[ -n $line ]]; do
@@ -56,10 +57,15 @@ is_hidden_desktop_file() {
       NotShowIn)
         not_show_in=$value
         ;;
+      Icon)
+        icon=$value
+        ;;
     esac
   done < "$file"
 
   [[ $hidden == "true" ]] && return 0
+  [[ -z $icon ]] && return 0
+  [[ $icon == /* && ! -e $icon ]] && return 0
   [[ -n $only_show_in ]] && ! desktop_matches "$only_show_in" && return 0
   [[ -n $not_show_in ]] && desktop_matches "$not_show_in" && return 0
 
@@ -70,7 +76,7 @@ scan_dir() {
   local dir=$1
   local file id
 
-  [[ -d $dir ]] || return
+  [[ -d $dir ]] || return 0
 
   while IFS= read -r -d '' file; do
     id=${file#"$dir"/}

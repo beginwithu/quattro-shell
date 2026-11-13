@@ -133,12 +133,12 @@ EOF
   # Seed Hyprland toggles directory (only flags.lua; individual toggles opt in when activated)
   mkdir -p "$HOME/.local/state/quattro/toggles/hypr"
   [[ -e $HOME/.local/state/quattro/toggles/hypr/flags.lua ]] || cp -a "$PROJECT_DIR/default/hypr/toggles/flags.lua" "$HOME/.local/state/quattro/toggles/hypr/flags.lua"
-  # Clean up contradictory toggle pairs if an earlier install copied every toggle file
-  if [[ -f $HOME/.local/state/quattro/toggles/hypr/window-glassy.lua && -f $HOME/.local/state/quattro/toggles/hypr/window-opaque.lua ]]; then
-    rm -f "$HOME/.local/state/quattro/toggles/hypr/window-glassy.lua" "$HOME/.local/state/quattro/toggles/hypr/window-opaque.lua"
-  fi
-  if [[ -f $HOME/.local/state/quattro/toggles/hypr/corners-rounded.lua && -f $HOME/.local/state/quattro/toggles/hypr/corners-sharp.lua ]]; then
-    rm -f "$HOME/.local/state/quattro/toggles/hypr/corners-rounded.lua" "$HOME/.local/state/quattro/toggles/hypr/corners-sharp.lua"
+  # One-time cleanup of shipped toggle files copied by earlier installer versions
+  if [[ ! -e $HOME/.local/state/quattro/.toggles-cleaned ]]; then
+    for stale_toggle in bar-glassy.lua corners-rounded.lua corners-sharp.lua no-animations.lua single-window-aspect-ratio.lua window-glassy.lua window-no-gaps.lua window-opaque.lua; do
+      rm -f "$HOME/.local/state/quattro/toggles/hypr/$stale_toggle"
+    done
+    : >"$HOME/.local/state/quattro/.toggles-cleaned"
   fi
 
   # Seed UWSM user env drop-in & xdg-terminal-exec list
@@ -163,6 +163,24 @@ EOF
     cp -a "$PROJECT_DIR/applications/icons/." "$HOME/.local/share/icons/hicolor/256x256/apps/"
     cp -a "$PROJECT_DIR/icon.png" "$HOME/.local/share/icons/hicolor/256x256/apps/quattro.png"
   fi
+
+  # Remove orphaned web-app entries whose icon file is missing
+  local app_file exec_line icon_line
+  while IFS= read -r -d '' app_file; do
+    exec_line=$(grep -m1 '^Exec=' "$app_file" 2>/dev/null || true)
+    [[ $exec_line == Exec=*launch-webapp* || $exec_line == Exec=*webapp-handler* ]] || continue
+    icon_line=$(sed -n 's/^Icon=//p' "$app_file" 2>/dev/null | head -n1)
+    if [[ -z $icon_line ]]; then
+      rm -f "$app_file"
+    elif [[ $icon_line == /* && ! -e $icon_line ]]; then
+      rm -f "$app_file"
+    elif [[ $icon_line != /* ]]; then
+      local icon_base="${icon_line%.*}"
+      if ! find -L "$HOME/.local/share/icons" /usr/share/icons /usr/share/pixmaps -type f \( -name "$icon_line" -o -name "$icon_base.png" -o -name "$icon_base.svg" \) -print -quit 2>/dev/null | grep -q .; then
+        rm -f "$app_file"
+      fi
+    fi
+  done < <(find "$HOME/.local/share/applications" -maxdepth 1 -type f -name '*.desktop' -print0 2>/dev/null)
 
   # User-level XKB option (Shift + CapsLock Compose), fastfetch, and mpv defaults
   mkdir -p "$HOME/.config/xkb/rules" "$HOME/.config/xkb/symbols"
@@ -252,6 +270,9 @@ generate_initial_theme
 
 if ! $SANDBOX; then
   install_system_configs
+  if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null 2>&1; then
+    hyprctl reload >/dev/null 2>&1 || true
+  fi
 fi
 
 cat <<EOF

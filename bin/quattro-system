@@ -43,15 +43,43 @@ case $action in
     ;;
 esac
 
+logout_session() {
+  if command -v uwsm >/dev/null 2>&1 && uwsm check is-active >/dev/null 2>&1; then
+    uwsm stop && return 0
+  fi
+
+  if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE:-} && -n ${XDG_RUNTIME_DIR:-} ]]; then
+    local sig
+    sig=$(ls -dt "$XDG_RUNTIME_DIR"/hypr/*/ 2>/dev/null | head -n1 || true)
+    sig=${sig%/}
+    HYPRLAND_INSTANCE_SIGNATURE=${sig##*/}
+    export HYPRLAND_INSTANCE_SIGNATURE
+  fi
+
+  if command -v hyprctl >/dev/null 2>&1 && [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+    hyprctl dispatch exit >/dev/null 2>&1 && return 0
+  fi
+
+  if [[ -n ${XDG_SESSION_ID:-} ]]; then
+    loginctl terminate-session "$XDG_SESSION_ID" && return 0
+  fi
+
+  return 1
+}
+
 exit_session() {
-  quattro-osd -i "$action" -m "$message" -d 5000
+  quattro-osd -i "$action" -m "$message" -d 5000 || true
   if [[ $action != "logout" ]]; then
     quattro-state clear re*-required
   fi
 
   # Proceed as soon as apps exit, with a bound for unresponsive windows.
-  timeout 2s quattro-hyprland-window-close-all --wait
-  "${command[@]}"
+  timeout 2s quattro-hyprland-window-close-all --wait || true
+  if [[ $action == "logout" ]]; then
+    logout_session
+  else
+    "${command[@]}"
+  fi
 }
 
 if [[ ${2:-} == "--inhibited" ]]; then
@@ -72,9 +100,15 @@ elif [[ ${2:-} == "--execute" ]]; then
   fi
 elif [[ -z ${2:-} ]]; then
   # Survive closing the terminal that requested the session exit.
-  systemd-run --user --collect --quiet --property=Type=exec --property=RuntimeMaxSec=30s \
-    --setenv=PATH --setenv=HYPRLAND_INSTANCE_SIGNATURE --setenv=QUATTRO_PATH \
-    "$0" "$action" --execute
+  setenv_args=()
+  for var in PATH HYPRLAND_INSTANCE_SIGNATURE QUATTRO_PATH WAYLAND_DISPLAY XDG_SESSION_ID XDG_CURRENT_DESKTOP DBUS_SESSION_BUS_ADDRESS; do
+    [[ -n ${!var:-} ]] && setenv_args+=(--setenv="$var")
+  done
+  if ! systemd-run --user --collect --quiet --property=Type=exec --property=RuntimeMaxSec=30s \
+    "${setenv_args[@]}" \
+    "$0" "$action" --execute 2>/dev/null; then
+    setsid "$0" "$action" --execute >/dev/null 2>&1 &
+  fi
 else
   echo "$usage" >&2
   exit 2
