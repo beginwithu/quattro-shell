@@ -276,8 +276,22 @@ install_system_configs() {
   sudo cp -a "$PROJECT_DIR/default/wayland-sessions/quattro.desktop" /usr/local/share/wayland-sessions/quattro.desktop
   sudo cp -a "$PROJECT_DIR/etc/sddm.conf.d/10-wayland.conf" /etc/sddm.conf.d/10-wayland.conf
   sudo cp -a "$PROJECT_DIR/etc/sddm.conf.d/10-theme.conf" /etc/sddm.conf.d/10-theme.conf
+  cat <<'EOF' | sudo tee /etc/sddm.conf.d/99-quattro-login.conf >/dev/null
+[Users]
+RememberLastUser=true
+RememberLastSession=true
+EOF
   sudo cp -a "$PROJECT_DIR/default/sddm/hyprland.lua" /usr/share/sddm/hyprland.lua
   sudo cp -a "$PROJECT_DIR/default/sddm/quattro/." /usr/share/sddm/themes/quattro/
+  if ! sudo grep -qE '^User=.+' /var/lib/sddm/state.conf 2>/dev/null; then
+    sudo install -d -m 0755 -o sddm -g sddm /var/lib/sddm 2>/dev/null || sudo install -d -m 0755 /var/lib/sddm
+    cat <<EOF | sudo tee /var/lib/sddm/state.conf >/dev/null
+[Last]
+Session=quattro.desktop
+User=$USER
+EOF
+    sudo chown sddm:sddm /var/lib/sddm /var/lib/sddm/state.conf 2>/dev/null || true
+  fi
   sudo cp -a "$PROJECT_DIR/etc/profile.d/quattro.sh" /etc/profile.d/quattro.sh
   sudo cp -a "$PROJECT_DIR/default/uwsm/env.d/10-quattro" /usr/share/uwsm/env.d/10-quattro
   sudo cp -a "$PROJECT_DIR/etc/fastfetch/config.jsonc" /etc/fastfetch/config.jsonc
@@ -292,6 +306,9 @@ install_system_configs() {
   if [[ -f /etc/pam.d/sddm ]]; then
     sudo sed -i '/-auth.*pam_gnome_keyring\.so/d' /etc/pam.d/sddm
     sudo sed -i '/-password.*pam_gnome_keyring\.so/d' /etc/pam.d/sddm
+  fi
+  if command -v faillock >/dev/null 2>&1; then
+    sudo faillock --user "$USER" --reset 2>/dev/null || true
   fi
 
   printf 'export QUATTRO_PATH="%s"\n' "$INSTALL_DIR" | sudo tee /etc/quattro.conf >/dev/null
