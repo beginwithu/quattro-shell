@@ -261,6 +261,8 @@ install_system_configs() {
   echo "==> Installing system-wide Arch integration (requires sudo)..."
   sudo mkdir -p \
     /usr/local/share/wayland-sessions \
+    /etc/sddm.conf.d \
+    /usr/share/sddm/themes/quattro \
     /etc/profile.d \
     /usr/share/uwsm/env.d \
     /etc/fastfetch \
@@ -272,6 +274,10 @@ install_system_configs() {
     /etc/systemd/user/wayland-wm@hyprland.desktop.service.d
 
   sudo cp -a "$PROJECT_DIR/default/wayland-sessions/quattro.desktop" /usr/local/share/wayland-sessions/quattro.desktop
+  sudo cp -a "$PROJECT_DIR/etc/sddm.conf.d/10-wayland.conf" /etc/sddm.conf.d/10-wayland.conf
+  sudo cp -a "$PROJECT_DIR/etc/sddm.conf.d/10-theme.conf" /etc/sddm.conf.d/10-theme.conf
+  sudo cp -a "$PROJECT_DIR/default/sddm/hyprland.lua" /usr/share/sddm/hyprland.lua
+  sudo cp -a "$PROJECT_DIR/default/sddm/quattro/." /usr/share/sddm/themes/quattro/
   sudo cp -a "$PROJECT_DIR/etc/profile.d/quattro.sh" /etc/profile.d/quattro.sh
   sudo cp -a "$PROJECT_DIR/default/uwsm/env.d/10-quattro" /usr/share/uwsm/env.d/10-quattro
   sudo cp -a "$PROJECT_DIR/etc/fastfetch/config.jsonc" /etc/fastfetch/config.jsonc
@@ -281,6 +287,12 @@ install_system_configs() {
   sudo cp -a "$PROJECT_DIR/etc/xkb/symbols/quattro" /etc/xkb/symbols/quattro
   sudo cp -a "$PROJECT_DIR/default/fontconfig/conf.avail/50-quattro.conf" /etc/fonts/conf.d/50-quattro.conf
   sudo cp -a "$PROJECT_DIR/etc/systemd/user/wayland-wm@hyprland.desktop.service.d/10-keep-shell.conf" /etc/systemd/user/wayland-wm@hyprland.desktop.service.d/10-keep-shell.conf
+
+  # Prevent SDDM PAM logins from creating an encrypted keyring that prompts on login
+  if [[ -f /etc/pam.d/sddm ]]; then
+    sudo sed -i '/-auth.*pam_gnome_keyring\.so/d' /etc/pam.d/sddm
+    sudo sed -i '/-password.*pam_gnome_keyring\.so/d' /etc/pam.d/sddm
+  fi
 
   printf 'export QUATTRO_PATH="%s"\n' "$INSTALL_DIR" | sudo tee /etc/quattro.conf >/dev/null
 
@@ -294,6 +306,9 @@ install_system_configs() {
   if [[ -x $INSTALL_DIR/bin/quattro-apply-lock ]]; then
     sudo QUATTRO_PATH="$INSTALL_DIR" QUATTRO_INSTALL_USER="$USER" "$INSTALL_DIR/bin/quattro-apply-lock"
   fi
+
+  echo "==> Enabling SDDM display manager..."
+  sudo systemctl enable --force sddm.service
 }
 
 if ! $SANDBOX; then
@@ -323,3 +338,8 @@ Next steps:
   3. Log in via SDDM (Quattro (Hyprland uwsm)) or start from TTY:
      uwsm start hyprland.desktop
 EOF
+
+if ! $SANDBOX && [[ -d /run/systemd/system ]] && [[ -z ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] && ! systemctl is-active --quiet sddm.service; then
+  echo "==> Starting SDDM..."
+  sudo systemctl start sddm.service
+fi

@@ -1,12 +1,13 @@
 # Lean core packages required for Quattro (Hyprland, Quickshell, theming, and shell scripts)
 # All packages exist in official Arch [core] / [extra] repositories.
 
-# Wayland compositor & shell
+# Wayland compositor, display manager & shell
 hyprland
 hyprland-guiutils
 hyprpicker
 hyprsunset
 quickshell
+sddm
 uwsm
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland

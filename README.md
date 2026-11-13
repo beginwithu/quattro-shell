@@ -1,6 +1,6 @@
 # quattro-arch
 
-Minimal [Hyprland](https://hypr.land/) desktop configuration and Quickshell environment adapted from Omarchy to run on a standard Arch Linux install without custom ISO tooling, bloatware apps, or AI/agent integrations.
+Minimal Hyprland desktop configuration and Quickshell environment adapted from Omarchy to run on a standard Arch Linux install without custom ISO tooling, bloatware apps, or AI/agent integrations.
 
 ## Directory layout
 
