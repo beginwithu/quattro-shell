@@ -424,7 +424,6 @@ var GUARD_READERS = [
   "quattro-bar get quattro.clock format",
   "quattro-bar get quattro.clock verticalFormat",
   "quattro-bar position",
-  "quattro-channel-current",
   "quattro-default-browser",
   "quattro-default-editor",
   "quattro-default-terminal",

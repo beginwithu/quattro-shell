@@ -380,8 +380,6 @@
   "remove.development.elixir.phoenix": {"icon":"","label":"Phoenix","when":"[[ -d $HOME/.local/share/mise/installs/elixir ]]","action":"quattro-launch-floating-terminal-with-presentation 'quattro-remove-dev-env phoenix'"},
 
   // Update
-  "update.quattro": {"icon":"","iconFont":"quattro","label":"Quattro","action":"quattro-launch-floating-terminal-with-presentation quattro-update"},
-  "update.channel": {"icon":"󰔫","label":"Channel"},
   "update.kernel": {"icon":"","label":"Kernel","when":"(( $(quattro-kernel list | wc -l) > 1 ))","provider":"kernels"},
   "update.config": {"icon":"","label":"Config","title":"Reset to default"},
   "update.themes": {"icon":"󰸌","label":"Extra Themes","when":"quattro-theme-extras","action":"quattro-launch-floating-terminal-with-presentation quattro-theme-update"},
@@ -391,10 +389,6 @@
   "update.password": {"icon":"","label":"Password"},
   "update.timezone": {"icon":"","label":"Timezone","action":"quattro-menu-timezone"},
   "update.time": {"icon":"","label":"Time","action":"quattro-launch-floating-terminal-with-presentation quattro-update-time"},
-  "update.channel.stable": {"icon":"🟢","label":"Stable","checked":"[[ \"$(quattro-channel-current)\" == \"stable\" ]]","action":"quattro-launch-floating-terminal-with-presentation 'quattro-channel-set stable'"},
-  "update.channel.rc": {"icon":"🟡","label":"RC","checked":"[[ \"$(quattro-channel-current)\" == \"rc\" ]]","action":"quattro-launch-floating-terminal-with-presentation 'quattro-channel-set rc'"},
-  "update.channel.edge": {"icon":"🟠","label":"Edge","checked":"[[ \"$(quattro-channel-current)\" == \"edge\" ]]","action":"quattro-launch-floating-terminal-with-presentation 'quattro-channel-set edge'"},
-  "update.channel.dev": {"icon":"🔴","label":"Dev","checked":"[[ \"$(quattro-channel-current)\" == \"dev\" ]]","action":"quattro-launch-floating-terminal-with-presentation 'quattro-channel-set dev'"},
   "update.process.hyprsunset": {"icon":"","label":"Hyprsunset","action":"quattro-restart-hyprsunset"},
   "update.process.shell": {"icon":"󰍜","label":"Shell","action":"quattro-restart-shell"},
   "update.config.hyprland": {"icon":"","label":"Hyprland","action":"quattro-launch-floating-terminal-with-presentation quattro-refresh-hyprland"},

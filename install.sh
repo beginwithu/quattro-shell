@@ -258,6 +258,31 @@ install_system_configs() {
   sudo cp -a "$PROJECT_DIR/etc/systemd/user/wayland-wm@hyprland.desktop.service.d/10-keep-shell.conf" /etc/systemd/user/wayland-wm@hyprland.desktop.service.d/10-keep-shell.conf
 
   printf 'export QUATTRO_PATH="%s"\n' "$INSTALL_DIR" | sudo tee /etc/quattro.conf >/dev/null
+
+  # Remove any leftover [quattro] / [omarchy] custom repo block from /etc/pacman.conf without adding any repo
+  if [[ -f /etc/pacman.conf ]] && grep -qE '^[[:space:]]*\[(quattro|omarchy)\][[:space:]]*$|pkgs\.omarchy\.org' /etc/pacman.conf; then
+    sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
+    awk '
+      /^[[:space:]]*\[(quattro|omarchy)\][[:space:]]*$/ { skip = 1; next }
+      skip && /^[[:space:]]*\[/ { skip = 0 }
+      skip { next }
+      /pkgs\.omarchy\.org/ { next }
+      { print }
+    ' /etc/pacman.conf | sudo tee /etc/pacman.conf.tmp >/dev/null
+    sudo mv /etc/pacman.conf.tmp /etc/pacman.conf
+    sudo chmod 0644 /etc/pacman.conf
+  fi
+
+  # If a previous Channel action overwrote /etc/pacman.d/mirrorlist with an omarchy.org mirror, restore stock Arch mirror
+  if [[ -f /etc/pacman.d/mirrorlist ]] && grep -qE 'omarchy\.org' /etc/pacman.d/mirrorlist; then
+    if [[ -f /etc/pacman.d/mirrorlist.bak ]] && ! grep -qE 'omarchy\.org' /etc/pacman.d/mirrorlist.bak; then
+      sudo cp -f /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
+    else
+      sudo cp -f /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+      printf 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\n' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
+    fi
+    sudo chmod 0644 /etc/pacman.d/mirrorlist
+  fi
 }
 
 if ! $SANDBOX; then

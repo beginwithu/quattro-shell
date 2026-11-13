@@ -856,11 +856,6 @@ configure_region() {
   else
     printf '%s\n' "$region" >"$marker"
   fi
-  # Re-render pacman for the region with the channel this machine installed.
-  channel=$(sed -n 's|^Server = https://pkgs\.omarchy\.[a-z]*/\([a-z]*\)/.*|\1|p' "$pacman_conf" | head -1)
-  if [[ -n $channel && -x $QUATTRO_PATH/bin/quattro-apply-pacman ]]; then
-    "$QUATTRO_PATH/bin/quattro-apply-pacman" "$channel" "${QUATTRO_REGION_TARGET:-/}" 2>&1 || true
-  fi
 }
 
 # The install's hardware step found only the UTC placeholder, which names no

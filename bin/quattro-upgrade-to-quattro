@@ -391,50 +391,7 @@ fi
 backup_suffix=$(date +%Y%m%d%H%M%S)
 
 configure_pacman_channel() {
-  log "Configuring Quattro pacman repositories ($channel)"
-
-  as_root install -d -m 0755 /etc/pacman.d
-  if [[ -f /etc/pacman.d/mirrorlist ]]; then
-    as_root cp -f /etc/pacman.d/mirrorlist "/etc/pacman.d/mirrorlist.quattro-upgrade-to-quattro.$backup_suffix.bak"
-  fi
-  printf 'Server = %s\n' "$mirror_server" | as_root tee /etc/pacman.d/mirrorlist >/dev/null
-
-  if [[ ! -f /etc/pacman.conf ]]; then
-    fail "/etc/pacman.conf does not exist."
-  fi
-
-  as_root cp -f /etc/pacman.conf "/etc/pacman.conf.quattro-upgrade-to-quattro.$backup_suffix.bak"
-
-  # Replace the normal Quattro package repository. Dev package mode uses the
-  # edge channel and resolves quattro-dev / quattro-settings-dev from [quattro].
-  local tmp
-
-  tmp=$(mktemp)
-  awk -v server="$package_server" '
-    BEGIN { in_quattro = 0; wrote = 0 }
-    /^[[:space:]]*\[quattro\][[:space:]]*$/ {
-      if (!wrote) {
-        print "[quattro]"
-        print "SigLevel = Optional TrustAll"
-        print "Server = " server
-        wrote = 1
-      }
-      in_quattro = 1
-      next
-    }
-    /^[[:space:]]*\[/ { in_quattro = 0 }
-    !in_quattro { print }
-    END {
-      if (!wrote) {
-        print ""
-        print "[quattro]"
-        print "SigLevel = Optional TrustAll"
-        print "Server = " server
-      }
-    }
-  ' /etc/pacman.conf >"$tmp"
-  as_root install -m 0644 "$tmp" /etc/pacman.conf
-  rm -f "$tmp"
+  log "Preserving existing pacman configuration (custom Quattro repo disabled)"
 }
 
 install_keyrings() {
