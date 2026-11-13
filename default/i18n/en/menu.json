@@ -183,10 +183,10 @@
     "label": "Windows"
   },
   "appearance.windows.gaps-on": {
-    "label": "Window Gaps On"
+    "label": "Enable Window Gaps"
   },
   "appearance.windows.gaps-off": {
-    "label": "Window Gaps Off"
+    "label": "Disable Window Gaps"
   },
   "appearance.windows.corners": {
     "label": "Window Corners"

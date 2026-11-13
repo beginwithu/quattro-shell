@@ -130,12 +130,16 @@ EOF
   [[ -f $HOME/.config/quattro/branding/about.txt ]] || cp -a "$PROJECT_DIR/logo.txt" "$HOME/.config/quattro/branding/about.txt"
   [[ -f $HOME/.config/quattro/branding/screensaver.txt ]] || cp -a "$PROJECT_DIR/icon.txt" "$HOME/.config/quattro/branding/screensaver.txt"
 
-  # Seed Hyprland toggles
+  # Seed Hyprland toggles directory (only flags.lua; individual toggles opt in when activated)
   mkdir -p "$HOME/.local/state/quattro/toggles/hypr"
-  for toggle in "$PROJECT_DIR"/default/hypr/toggles/*.lua; do
-    local tname="${toggle##*/}"
-    [[ -e $HOME/.local/state/quattro/toggles/hypr/$tname ]] || cp -a "$toggle" "$HOME/.local/state/quattro/toggles/hypr/$tname"
-  done
+  [[ -e $HOME/.local/state/quattro/toggles/hypr/flags.lua ]] || cp -a "$PROJECT_DIR/default/hypr/toggles/flags.lua" "$HOME/.local/state/quattro/toggles/hypr/flags.lua"
+  # Clean up contradictory toggle pairs if an earlier install copied every toggle file
+  if [[ -f $HOME/.local/state/quattro/toggles/hypr/window-glassy.lua && -f $HOME/.local/state/quattro/toggles/hypr/window-opaque.lua ]]; then
+    rm -f "$HOME/.local/state/quattro/toggles/hypr/window-glassy.lua" "$HOME/.local/state/quattro/toggles/hypr/window-opaque.lua"
+  fi
+  if [[ -f $HOME/.local/state/quattro/toggles/hypr/corners-rounded.lua && -f $HOME/.local/state/quattro/toggles/hypr/corners-sharp.lua ]]; then
+    rm -f "$HOME/.local/state/quattro/toggles/hypr/corners-rounded.lua" "$HOME/.local/state/quattro/toggles/hypr/corners-sharp.lua"
+  fi
 
   # Seed UWSM user env drop-in & xdg-terminal-exec list
   mkdir -p "$HOME/.config/uwsm/env.d" "$HOME/.config/xdg-terminal-exec" "$HOME/.config/environment.d"
