@@ -66,6 +66,9 @@ install_runtime() {
 
   echo "==> Linking quattro-* commands into $BIN_LINK_DIR..."
   mkdir -p "$BIN_LINK_DIR"
+  for link in "$BIN_LINK_DIR"/quattro-*; do
+    [[ -L $link && ! -e $link ]] && rm -f "$link"
+  done
   for bin_file in "$PROJECT_DIR"/bin/*; do
     local name="${bin_file##*/}"
     ln -snf "$INSTALL_DIR/bin/$name" "$BIN_LINK_DIR/$name"
