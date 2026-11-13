@@ -81,7 +81,7 @@ quattro-shell shell debugBarGeometry
 
 ## Scope & verification
 
-- This repo is a standalone Arch Linux setup without AI/agent desktop integrations (`opencode`, `herdr`, `quattro-agent*`, AI dictation, crash-watch AI hooks have been removed), without custom pacman repos/channel switchers (`quattro.db`), and without bloat preinstalled webapps or AUR requirements. Keep new changes free of those dependencies.
+- This repo is a standalone Arch Linux setup without AI/agent desktop integrations (`opencode`, `herdr`, `quattro-agent*`, AI dictation, crash-watch AI hooks have been removed), without custom pacman repos/channel switchers, and without bloat preinstalled webapps or AUR requirements. Keep new changes free of those dependencies.
 - Core defaults & integrations to preserve:
   - Nautilus (`org.gnome.Nautilus.desktop`) as the default file manager (`inode/directory`), themed via `gtk-4.0/gtk.css` and dynamic icon rendering.
   - Built-in Python Cloudflare client in `bin/quattro-network-speedtest` for the speedtest panel (no external `quattro-speedtest` package dependency).
