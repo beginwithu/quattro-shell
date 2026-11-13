@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# quattro:summary=Detect ASUS ExpertBook B9406 series laptops on Intel Panther Lake.
+
+quattro-hw-match "B9406" && quattro-hw-intel-ptl

@@ -11,8 +11,7 @@ history_path="$HOME/.local/state/quattro/clipboard-history.json"
 while (( $# > 0 )); do
   case "$1" in
     --history-index)
-      (( $# >= 2 )) || exit 1
-      history_index="$2"
+      history_index="${2:-}"
       shift 2
       ;;
     *)
@@ -31,10 +30,7 @@ open_image() {
   local path="$1"
 
   [[ -r $path ]] || exit 1
-  if command -v omasnap >/dev/null 2>&1; then
-    exec omasnap --notify "$path"
-  fi
-  exec setsid xdg-open "$path" >/dev/null 2>&1
+  exec omasnap --notify "$path"
 }
 
 open_text() {

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# quattro:summary=Show the current battery status notification
+
+quattro-notification-send -g 󰁹 -u low "$(quattro-battery-status)"

@@ -30,7 +30,7 @@ BarWidget {
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
 
   function open() {
-    if (panelLoader.item && panelLoader.item.open) panelLoader.item.open()
+    if (panelLoader.item && panelLoader.item.openFromHotkey) panelLoader.item.openFromHotkey()
   }
 
   function close() {

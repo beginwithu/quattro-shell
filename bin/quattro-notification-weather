@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# quattro:summary=Toggle the current weather panel
+
+quattro-shell shell toggle quattro.weather

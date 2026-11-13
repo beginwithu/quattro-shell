@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# quattro:summary=Toggle screensaver availability
+
+quattro-toggle screensaver-off
+
+if quattro-toggle-enabled screensaver-off; then
+  quattro-notification-send -g 󱄄 "$(quattro-i18n screensaver.disabled)"
+else
+  quattro-notification-send -g 󱄄 "$(quattro-i18n screensaver.enabled)"
+fi

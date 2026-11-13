@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# quattro:summary=Edit, set, or reset screensaver branding
+# quattro:group=branding
+# quattro:name=screensaver
+# quattro:args=<image|text|reset>
+# quattro:examples=quattro branding screensaver image | quattro branding screensaver text | quattro branding screensaver reset
+
+set -euo pipefail
+
+case "${1:-}" in
+image)
+  image=$(quattro-file-select --title "$(quattro-i18n branding.pickScreensaverImage)" --extensions "png svg")
+  if quattro-transcode-ascii "$image" ~/.config/quattro/branding/screensaver.txt; then
+    quattro-launch-screensaver force >/dev/null 2>&1
+  fi
+  ;;
+text)
+  quattro-launch-editor ~/.config/quattro/branding/screensaver.txt >/dev/null 2>&1 && quattro-launch-screensaver force >/dev/null 2>&1
+  ;;
+reset)
+  cp "$QUATTRO_PATH/logo.txt" ~/.config/quattro/branding/screensaver.txt && quattro-launch-screensaver force >/dev/null 2>&1
+  ;;
+*)
+  echo "Usage: quattro-branding-screensaver <image|text|reset>" >&2
+  exit 1
+  ;;
+esac

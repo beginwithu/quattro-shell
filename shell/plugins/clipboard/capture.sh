@@ -17,7 +17,7 @@ if [[ ${CLIPBOARD_STATE:-} == "sensitive" ]] || grep -qx 'x-kde-passwordManagerH
 fi
 
 tmp=
-trap '[[ -n $tmp ]] && rm -f -- "$tmp"' EXIT
+trap 'rm -f -- "$tmp"' EXIT
 
 # The clipboard owner streams the copy and can stall without closing its end, so
 # every read is bounded, and a copy cut off at the deadline is dropped, not kept.

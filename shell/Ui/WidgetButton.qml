@@ -188,6 +188,6 @@ Item {
         root.revealHost.setIndicatorItemHovered(false)
     }
     onClicked: function(mouse) { if (root.pressable) root.triggerPress(mouse.button) }
-    onWheel: function(wheel) { if (wheel.angleDelta.y !== 0) root.wheelMoved(wheel.angleDelta.y) }
+    onWheel: function(wheel) { root.wheelMoved(wheel.angleDelta.y) }
   }
 }

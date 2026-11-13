@@ -1,5 +1,17 @@
 #!/bin/bash
 
-# quattro:summary=Screensaver hook; nothing is bundled, so idle goes straight to the lock
-# Put your own in ~/.config/quattro/hooks/screensaver and set idle.screensaver in shell.json.
-exec quattro-hook screensaver "$@"
+# quattro:summary=Launch the Quattro screensaver on every display.
+# quattro:args=[force] [options]
+
+if [[ -x /usr/lib/omarchy-screensaver/omarchy-screensaver ]]; then
+  exec /usr/lib/omarchy-screensaver/omarchy-screensaver "$@"
+fi
+
+# Fallback when Quattro's proprietary screensaver binary isn't installed on standard Arch:
+# only lock/blank when forced or invoked directly, otherwise exit cleanly.
+if [[ ${1:-} == "force" ]]; then
+  if command -v quattro-system-lock >/dev/null 2>&1; then
+    exec quattro-system-lock
+  fi
+fi
+exit 0

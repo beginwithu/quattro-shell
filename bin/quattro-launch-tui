@@ -1,4 +1,13 @@
 #!/bin/bash
 
-# quattro:summary=Run a terminal app in a terminal window
-exec setsid quattro-terminal "$@"
+# quattro:summary=Launch a TUI command in the default terminal with Quattro styling
+# quattro:args=[--app-id=<app-id>] <command> [args...]
+
+if [[ ${1:-} == --app-id=* ]]; then
+  APP_ID="${1#--app-id=}"
+  shift
+else
+  APP_ID="org.quattro.$(basename $1)"
+fi
+
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=$APP_ID -e "$1" "${@:2}"

@@ -1,0 +1,6 @@
+# Optional AUR packages (installed via yay when --with-aur is passed to install.sh)
+qtengine
+google-chrome
+tzupdate
+ufw-docker
+tobi-try

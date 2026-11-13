@@ -1,0 +1,7 @@
+[SddmGreeterTheme]
+Name=Quattro
+Description=Minimal terminal-style login theme matching the Limine bootloader aesthetic
+Author=Quattro
+Type=sddm-theme
+Version=1.0
+QtVersion=6

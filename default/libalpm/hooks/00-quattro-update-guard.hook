@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Checking Quattro update entrypoint...
+When = PreTransaction
+Depends = quattro
+Exec = /usr/bin/quattro-update-pacman-guard
+AbortOnFail

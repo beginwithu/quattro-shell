@@ -20,15 +20,9 @@ Item {
 
   property bool hasPendingTemperature: false
   property int pendingTemperature: 0
-  property bool refreshPending: false
 
   function refresh() {
-    if (statusProbe.running) {
-      root.refreshPending = true
-      return
-    }
-    root.refreshPending = false
-    statusProbe.running = true
+    if (!statusProbe.running) statusProbe.running = true
   }
 
   function setNightlight(value) {
@@ -53,27 +47,29 @@ Item {
   }
 
   function runApply(temp) {
-    applyProcess.command = ["quattro-nightlight", "set", String(Number(temp))]
+    applyProcess.command = ["bash", "-lc",
+      "pgrep -x hyprsunset >/dev/null || { setsid uwsm-app -- hyprsunset >/dev/null 2>&1 & sleep 1; }; " +
+      "hyprctl hyprsunset temperature " + Number(temp) +
+      // Even daylight tints the screen, so off also restores the identity matrix
+      (temp === dayTemperature ? " && hyprctl hyprsunset identity" : "")]
     applyProcess.running = true
   }
 
   Process {
     id: statusProbe
-    command: ["quattro-nightlight", "get"]
+    command: ["hyprctl", "hyprsunset", "temperature"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        if (applyProcess.running || root.hasPendingTemperature) return
         root.temperature = NightlightModel.temperatureFromOutput(text)
         root.stateLoaded = true
       }
     }
     onExited: function(exitCode) {
-      if (exitCode !== 0 && !applyProcess.running && !root.hasPendingTemperature) {
+      if (exitCode !== 0) {
         root.temperature = null
         root.stateLoaded = true
       }
-      if (root.refreshPending) Qt.callLater(root.refresh)
     }
   }
 
@@ -81,9 +77,8 @@ Item {
     id: applyProcess
     onExited: function() {
       if (root.hasPendingTemperature) {
-        var pending = root.pendingTemperature
         root.hasPendingTemperature = false
-        Qt.callLater(function() { root.runApply(pending) })
+        root.runApply(root.pendingTemperature)
         return
       }
 

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# quattro:summary=Check if a toggle is enabled (flag file exists)
+# quattro:args=<flag-name>
+
+[[ -f "$HOME/.local/state/quattro/toggles/$1" ]]

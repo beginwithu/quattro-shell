@@ -1,4 +1,4 @@
-# Global shortcuts the Quattro shell registers, one per line: a menu
+# Hyprland global shortcuts the Quattro shell registers, one per line: a menu
 # route to toggle, a panel plugin to toggle, a volume or brightness key, or an
 # argument-free IPC call as target.method. A binding written as o.bind(keys,
 # description, { menu = "theme" }), { panel = "quattro.emojis" },
@@ -9,11 +9,19 @@
 # quattro-brightness-display command instead.
 menu root
 menu apps
+menu capture
+menu toggle
+menu hardware
 menu system
+menu background
+menu theme
+menu share
+menu reminder-set
 panel quattro.clipboard
 panel quattro.emojis
 panel quattro.audio
 panel quattro.bluetooth
+panel quattro.monitor
 panel quattro.clock
 panel quattro.elsewhen
 panel quattro.network

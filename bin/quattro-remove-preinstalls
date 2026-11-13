@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# quattro:summary=Remove preinstalled Quattro applications (web apps, TUIs, and selected packages).
+
+if gum confirm --affirmative "$(quattro-i18n common.yes)" --negative "$(quattro-i18n common.no)" "$(quattro-i18n preinstalls.confirmRemove)"; then
+  echo -e "Removing preinstalled Quattro applications...\n"
+
+  quattro-webapp-remove-all
+  quattro-tui-remove-all
+
+  mkdir -p ~/.local/state/quattro
+  touch ~/.local/state/quattro/preinstalls-removed
+  quattro-restart-hyprctl
+
+  # Disable Quattro's default mise tools for this user and retire their shims.
+  quattro-mise-default-tools disable || exit 1
+
+  # Remove wrappers left by older Quattro releases.
+  rm -f ~/.local/bin/gh ~/.local/bin/playwright ~/.local/bin/playwright-cli \
+       ~/.local/bin/cf ~/.local/bin/ghui ~/.local/bin/hunk
+
+  quattro-pkg-drop \
+    aether \
+    cliamp \
+    libreoffice-fresh \
+    pinta \
+    obsidian \
+    omacut \
+    omacalc \
+    omawrite \
+    hype \
+    signed
+fi

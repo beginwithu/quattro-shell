@@ -1,0 +1,118 @@
+# Core packages for running Quattro configs, Hyprland (Lua), Quickshell,
+# terminals, theming, and shell tools on pure Arch Linux.
+# Every package here is in official Arch [core]/[extra] repositories.
+
+# Wayland compositor & desktop shell
+hyprland
+hyprland-guiutils
+hyprpicker
+hyprsunset
+quickshell
+uwsm
+xdg-desktop-portal-gtk
+xdg-desktop-portal-hyprland
+xdg-terminal-exec
+xdg-user-dirs
+
+# Qt / GTK / theming / fonts
+adwaita-fonts
+fontconfig
+gnome-keyring
+gnome-themes-extra
+libsecret
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji
+qt6-base
+qt6-declarative
+qt6-imageformats
+qt6-multimedia
+qt6-svg
+qt6-wayland
+qt6ct
+ttf-jetbrains-mono-nerd
+woff2-font-awesome
+
+# Terminals (foot is default in hyprland-xdg-terminals.list; alacritty/kitty/ghostty also configured)
+alacritty
+foot
+ghostty
+kitty
+
+# Shell & CLI tools
+bash-completion
+bat
+btop
+eza
+fastfetch
+fd
+fzf
+git
+gum
+imagemagick
+imv
+inotify-tools
+jq
+lazygit
+less
+lua51
+mise
+neovim
+ripgrep
+socat
+starship
+tldr
+tmux
+tree-sitter-cli
+unzip
+vim
+zoxide
+
+# Capture, clipboard, audio, network, power
+alsa-utils
+bluez
+bluez-utils
+brightnessctl
+ddcutil
+ffmpeg
+ffmpegthumbnailer
+grim
+gvfs-mtp
+libvips
+mpv
+mpv-mpris
+networkmanager
+pamixer
+pipewire
+pipewire-alsa
+pipewire-jack
+pipewire-pulse
+power-profiles-daemon
+qrencode
+rtkit
+satty
+slurp
+tesseract
+tesseract-data-eng
+udiskie
+wireplumber
+wl-clipboard
+wtype
+zbar
+
+# File manager & calculator fallbacks
+nautilus
+qalculate-gtk
+
+# Input method
+fcitx5
+fcitx5-configtool
+fcitx5-gtk
+fcitx5-qt
+
+# Utilities needed by quattro-* scripts
+expac
+inxi
+man-db
+pacman-contrib
+python-gobject

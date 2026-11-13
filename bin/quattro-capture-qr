@@ -1,23 +1,36 @@
 #!/bin/bash
 
-# quattro:summary=Read a QR code or barcode in a screen region and copy its contents to the clipboard
+# quattro:summary=Decode a QR code from a screenshot region
+# quattro:group=capture
+# quattro:examples=quattro capture qr
 
-for tool in grim slurp zbarimg wl-copy; do
-  command -v "$tool" >/dev/null 2>&1 || { echo "quattro-capture-qr: $tool is required" >&2; exit 1; }
-done
+# Keep hyprpicker alive until after grim captures so the screenshot sees the
+# frozen overlay rather than live content shifting during teardown.
+cleanup_freeze() {
+  [[ -n $PID ]] && kill $PID 2>/dev/null
+}
+trap cleanup_freeze EXIT
 
-region=$(slurp) || exit 0
-image=$(mktemp --suffix=.png) || exit 1
-trap 'rm -f "$image"' EXIT
+hyprpicker -r -z >/dev/null 2>&1 &
+PID=$!
+sleep .1
+SELECTION=$(slurp 2>/dev/null)
 
-grim -g "$region" "$image" || exit 1
-# zbarimg exits 4 when the image holds no code.
-content=$(zbarimg --raw -q "$image" 2>/dev/null)
+[[ -z $SELECTION ]] && exit 0
 
-if [[ -z $content ]]; then
-  quattro-notification-send -g 󰐲 "No QR code found" >/dev/null 2>&1 || true
+# Decode QR codes only. Leaving the other symbologies enabled lets dense screen
+# content false-positive as an EAN or Code 39 barcode and take over the clipboard.
+RESULT=$(grim -g "$SELECTION" - | zbarimg -q --raw -Sdisable -Sqrcode.enable - 2>/dev/null)
+
+if [[ -z $RESULT ]]; then
+  quattro-notification-send -g 󰐲 -u critical "$(quattro-i18n capture.qrNone)" "$(quattro-i18n capture.qrHelp)"
   exit 1
 fi
 
-printf '%s' "$content" | wl-copy
-quattro-notification-send -g 󰐲 "QR code copied" "${content:0:120}" >/dev/null 2>&1 || true
+# QR codes routinely carry secrets, like the otpauth:// URIs behind 2FA setup
+# codes, so the decoded value goes to the clipboard and nowhere else. Printing it
+# or putting it in the notification would leak it to the session journal and to
+# the notification history, and an unmarked copy would be retained by clipboard
+# history. Pasting still works; only the recorded copy is given up.
+printf '%s' "$RESULT" | wl-copy --sensitive
+quattro-notification-send -g 󰐲 "$(quattro-i18n capture.qrCopied)"

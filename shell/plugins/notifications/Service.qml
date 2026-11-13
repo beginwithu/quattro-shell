@@ -18,6 +18,7 @@ import "Security.js" as Security
 import "Layout.js" as Layout
 import "Markup.js" as Markup
 import "Delivery.js" as Delivery
+import "Icons.js" as Icons
 
 Item {
   id: service
@@ -31,7 +32,7 @@ Item {
   property string deckDisplayName: ""
   readonly property var displayNames: Quickshell.screens.map(function(screen) { return screen.name })
   readonly property string focusedDisplayName: {
-    var name = Compositor.focusedMonitorName
+    var name = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
     return displayNames.indexOf(name) >= 0 ? name : (displayNames[0] || "")
   }
   readonly property string targetDisplayName: displayNames.indexOf(deckDisplayName) >= 0 ? deckDisplayName : focusedDisplayName
@@ -573,10 +574,31 @@ Item {
     return ""
   }
 
+  // The card a new notification repeats word for word (Store.isDuplicate),
+  // shown or still waiting to be, offering the same buttons: Reply and Join
+  // under the same words are two cards. One on its way out is left to go.
+  function keyForDuplicate(row, notification) {
+    var buttons = JSON.stringify(senderActions(notification))
+    for (var key in liveKeys) {
+      if (leaving[key]) continue
+      var at = rowIndexFor(key)
+      var shown = liveKeys[key].row || (at >= 0 ? toasts.get(at) : null)
+      if (Store.isDuplicate(row, shown) && JSON.stringify(actionsOf(key)) === buttons) return key
+    }
+    return ""
+  }
+
   // ------------------------------------------------------------- arrival
   function handleNotification(notification) {
     // Replacements reuse the same slot, including before its first insertion.
-    var key = keyForOriginal(notification.id) || nextKey()
+    var known = keyForOriginal(notification.id)
+    var row = Store.snapshot(notification, known, NotificationUrgency)
+    // So does an identical copy under a new id: it takes over the card it
+    // repeats, and the copy it supersedes is closed at its sender.
+    var key = known || keyForDuplicate(row, notification) || nextKey()
+    row.key = key
+    // An unnamed sender's toast is grouped by its own key, known only now.
+    row.groupKey = Markup.regroup(row)
 
     if (!reserveLive(key)) {
       notification.tracked = false
@@ -586,7 +608,6 @@ Item {
     // Otherwise the object is destroyed when this handler returns.
     notification.tracked = true
 
-    var row = Store.snapshot(notification, key, NotificationUrgency)
     row.duration = durationFor(notification.urgency, row.expireTimeout)
 
     var previous = refs[key]
@@ -884,9 +905,10 @@ Item {
 
   // What the sender said can be done with this notification. A restored row
   // has no live sender, so it has none of these.
-  function actionsOf(key, revision) {
+  function actionsOf(key, revision) { return senderActions(refs[key]) }
+
+  function senderActions(ref) {
     var out = []
-    var ref = refs[key]
     if (!ref || !ref.actions) return out
     for (var i = 0; i < Math.min(ref.actions.length, Security.MAX_ACTIONS); i++) {
       var a = ref.actions[i]
@@ -1088,7 +1110,7 @@ Item {
       else if (Markup.hostname(row.source))
         Security.openExternalUrl("https://" + Markup.hostname(row.source) + "/")
       else if (String(row.link || "")) Security.openExternalUrl(String(row.link))
-      else if (String(row.app || "")) Util.execArgv(["quattro-focus-app", String(row.app)])
+      else if (String(row.app || "")) Util.execArgv(["quattro-hyprland-focus-app", String(row.app)])
     }
     closeToast(key, "activated", instant)
   }
@@ -1155,7 +1177,7 @@ Item {
     onTriggered: {
       var pending = keys
       keys = []
-      service.closeToasts(pending, "activated")
+      for (var i = 0; i < pending.length; i++) service.closeToast(pending[i], "activated")
     }
   }
 
@@ -1432,9 +1454,8 @@ Item {
 
     // Press button n (from 1) on the newest card.
     function invokeAction(n: int): string {
-      var key = service.newestLive()
-      if (!key) return "none"
-      return service.runDeed(key, n - 1) ? "ok" : "none"
+      if (toasts.count === 0) return "none"
+      return service.runDeed(String(toasts.get(0).key), n - 1) ? "ok" : "none"
     }
 
     // Hand the keyboard to the notifications until Escape or a choice.
@@ -1455,7 +1476,7 @@ Item {
       for (var i = 0; i < toasts.count; i++)
         if (String(toasts.get(i).summary || "").indexOf(needle) !== -1)
           keys.push(String(toasts.get(i).key))
-      service.closeToasts(keys, "dismissed")
+      for (var k = 0; k < keys.length; k++) service.closeToast(keys[k], "dismissed")
       return keys.length ? "ok" : "none"
     }
 
@@ -1464,14 +1485,12 @@ Item {
     // Open the deck as hovering would, or close it again. A headless session
     // has no pointer.
     function expand(): string {
-      var key = service.newestLive()
-      var at = service.rowIndexFor(key)
       if (service.expanded) {
         service.commit(function() {
           service.expanded = false; service.openDeck = ""; service.hoverKey = ""
         })
-      } else if (at >= 0) {
-        var front = toasts.get(at)
+      } else if (toasts.count > 0) {
+        var front = toasts.get(0)
         service.pointerEntered(Layout.groupKeyFor(front))
         service.hoverKey = String(front.key)
       } else {

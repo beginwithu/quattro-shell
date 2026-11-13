@@ -19,8 +19,8 @@ if [[ ! $weather_code =~ ^[0-9]+$ || ! $sunrise =~ ^[0-9]{1,2}:[0-9]{2}\ [AP]M$ 
 fi
 
 now_epoch=$(date +%s)
-sunrise_epoch=$(LC_ALL=C date -d "today $sunrise" +%s 2>/dev/null || echo 0)
-sunset_epoch=$(LC_ALL=C date -d "today $sunset" +%s 2>/dev/null || echo 0)
+sunrise_epoch=$(date -d "today $sunrise" +%s 2>/dev/null || echo 0)
+sunset_epoch=$(date -d "today $sunset" +%s 2>/dev/null || echo 0)
 
 if (( sunrise_epoch > 0 && sunset_epoch > 0 && (now_epoch < sunrise_epoch || now_epoch >= sunset_epoch) )); then
   night=true

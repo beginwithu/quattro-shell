@@ -1,13 +1,14 @@
 -- Quattro Hyprland setup: helpers, defaults, and current theme overrides.
 
 require("default.hypr.helpers")
-local paths = require("default.hypr.paths")
-local require_all = require("default.hypr.require_all")
 local require_optional = require("default.hypr.require_optional")
 
 -- Use Quattro defaults, but don't edit these directly.
 require("default.hypr.autostart")
+-- Before any monitor rule, so every one of them passes through it.
+require("default.hypr.wide-gamut")
 require("default.hypr.monitors")
+require("default.hypr.monitor-workspaces")
 if _G.quattro_default_bindings ~= false then
   require("default.hypr.bindings.media")
   require("default.hypr.bindings.clipboard")
@@ -22,9 +23,13 @@ if _G.quattro_default_gestures ~= false then
 end
 require("default.hypr.envs")
 require("default.hypr.looknfeel")
+require("default.hypr.qconsole")
 require("default.hypr.input")
 require("default.hypr.windows")
+require("default.hypr.pop")
 
--- Current theme overrides and active toggles.
+-- Current theme overrides.
 require_optional.module("quattro.current.theme.hyprland")
-require_all.files(paths.state_home .. "/quattro/toggles/hypr", "quattro.toggles.hypr", { reload = true })
+
+-- Lighter defaults for a session that renders on the CPU, over the theme's.
+require("default.hypr.software-rendering")

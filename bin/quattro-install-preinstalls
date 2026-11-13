@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# quattro:summary=Restore the preinstalled Quattro applications (web apps, TUIs, and selected packages).
+# quattro:requires-sudo=true
+
+if gum confirm --affirmative "$(quattro-i18n common.yes)" --negative "$(quattro-i18n common.no)" "$(quattro-i18n preinstalls.confirmRestore)"; then
+  echo -e "Restoring preinstalled Quattro applications...\n"
+
+  # Recreates the shipped .desktop launchers (web apps and TUIs).
+  quattro-refresh-applications || exit 1
+
+  # Re-enable Quattro's default mise tools for this user and rebuild their shims.
+  if ! quattro-mise-default-tools enable; then
+    echo -e "\nCould not restore mise tools. Preinstalls remain marked as removed."
+    exit 1
+  fi
+
+  # Mirrors the list in quattro-remove-preinstalls; both track quattro-base.packages
+  if ! quattro-pkg-add \
+    aether \
+    cliamp \
+    libreoffice-fresh \
+    pinta \
+    obsidian \
+    omacut \
+    omacalc \
+    omawrite \
+    hype \
+    signed; then
+    echo -e "\nPreinstalls are still marked as removed. Fix the errors above and try again."
+    exit 1
+  fi
+
+  # Last, so a failure above leaves the opt-out intact rather than restoring
+  # keybindings for apps that never came back
+  rm -f ~/.local/state/quattro/preinstalls-removed
+  quattro-restart-hyprctl
+fi

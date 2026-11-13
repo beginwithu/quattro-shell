@@ -18,14 +18,25 @@ BarIconButton {
   property bool revealWhenInactive: true
   readonly property bool effectiveActive: activeOverride === null || activeOverride === undefined ? active : activeOverride === true
   readonly property bool belongsInBlock: indicatorBlock === "active" ? effectiveActive : (indicatorBlock === "inactive" ? !effectiveActive && revealWhenInactive : true)
-  readonly property bool inactiveRevealed: !effectiveActive && revealWhenInactive && !!indicatorHost && indicatorHost.revealInactiveIndicators === true
+  readonly property bool inactiveRevealed: !effectiveActive && revealWhenInactive && !!indicatorHost && indicatorHost.revealInactiveIndicators
 
   function extractData(raw) {
     return Util.parseModuleJson(raw)
   }
 
+  function syncIndicatorOpacity() {
+    root.opacity = !belongsInBlock ? 0 : (effectiveActive ? 1 : (inactiveRevealed ? 0.45 : 0))
+  }
+
+  Component.onCompleted: syncIndicatorOpacity()
+  onActiveChanged: syncIndicatorOpacity()
+  onEffectiveActiveChanged: syncIndicatorOpacity()
+  onBarChanged: syncIndicatorOpacity()
+  onBelongsInBlockChanged: syncIndicatorOpacity()
+  onInactiveRevealedChanged: syncIndicatorOpacity()
+  onIndicatorBlockChanged: syncIndicatorOpacity()
+
   visible: belongsInBlock && (text !== "" || keepSpace)
-  opacity: !belongsInBlock || !hasVisualContent || concealed ? 0 : (dimmed ? 0.45 : 1)
   text: effectiveActive ? activeText : inactiveText
   tooltipText: effectiveActive ? activeTooltipText : inactiveTooltipText
   keepSpace: true

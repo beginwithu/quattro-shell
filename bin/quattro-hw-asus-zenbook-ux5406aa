@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# quattro:summary=Detect ASUS Zenbook UX5406AA series laptops on Intel Panther Lake.
+
+quattro-hw-match "ux5406aa" && quattro-hw-intel-ptl

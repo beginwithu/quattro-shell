@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# quattro:summary=Refresh the current theme from its templates.
+
+THEME_NAME_PATH="$HOME/.local/state/quattro/current/theme.name"
+
+# Installers and migrations refresh the theme and then read the app configs it
+# writes, so this waits for every retint rather than leaving some running.
+if [[ -f $THEME_NAME_PATH ]]; then
+  QUATTRO_THEME_WAIT=1 QUATTRO_THEME_SKIP_BACKGROUND=1 quattro-theme-set "$(cat $THEME_NAME_PATH)"
+fi

@@ -371,14 +371,12 @@ Item {
   }
 
   function respondToPasswordPrompt() {
-    if (!authenticatingPassword || !passwordPam.active || !passwordPam.responseRequired || !pendingPassword) return
-    var password = pendingPassword
-    pendingPassword = ""
-    passwordPam.respond(password)
+    if (!authenticatingPassword || !passwordPam.active || !passwordPam.responseRequired) return
+    passwordPam.respond(pendingPassword)
   }
 
   function handlePasswordFailure() {
-    if (!lockRequested || !authenticatingPassword) return
+    if (!lockRequested) return
 
     authenticatingPassword = false
     enteredPassword = ""
@@ -517,6 +515,7 @@ Item {
         fingerprintUnavailable: root.fingerprintUnavailable
         authenticatingPassword: root.authenticatingPassword
         failureMessage: root.failureMessage
+        failedAttempts: root.failedAttempts
         inputEnabled: root.lockRequested
         loadBackground: root.locked
         passwordText: root.enteredPassword
@@ -552,6 +551,7 @@ Item {
       fingerprintUnavailable: root.fingerprintUnavailable
       authenticatingPassword: false
       failureMessage: ""
+      failedAttempts: 0
       inputEnabled: false
       loadBackground: root.previewVisible
       passwordText: ""
@@ -573,11 +573,10 @@ Item {
     onPamMessage: root.respondToPasswordPrompt()
 
     onCompleted: function(result) {
-      if (!root.lockRequested) {
-        root.authenticatingPassword = false
-        root.pendingPassword = ""
-        return
-      }
+      root.authenticatingPassword = false
+      root.pendingPassword = ""
+
+      if (!root.lockRequested) return
       if (result === PamResult.Success) root.finishUnlock()
       else root.handlePasswordFailure()
     }
@@ -725,7 +724,7 @@ Item {
   // Keep fprintd errors distinguishable from an explicit empty enrollment.
   Process {
     id: fingerprintCheckProc
-    command: ["bash", "-c", "if [[ -f /etc/pam.d/quattro-lock-fingerprint ]] && command -v fprintd-list >/dev/null 2>&1; then LC_ALL=C fprintd-list -- \"$1\" 2>&1; else echo no; fi", "_", root.userName]
+    command: ["bash", "-c", "if [[ -f /etc/pam.d/quattro-lock-fingerprint ]] && command -v fprintd-list >/dev/null 2>&1; then LC_ALL=C fprintd-list \"$USER\" 2>&1; else echo no; fi"]
     stdout: StdioCollector { id: fingerprintCheckStdout; waitForEnd: true }
     onExited: root.applyFingerprintProbe(fingerprintCheckStdout.text)
   }
@@ -742,7 +741,7 @@ Item {
   Process {
     id: strandedLockCheckProc
     // $PPID is this shell: a crash re-execs in place, so its pid is the one to skip.
-    command: ["bash", "-c", "quattro-session-lock-stranded \"$PPID\""]
+    command: ["bash", "-c", "quattro-hyprland-session-lock-stranded \"$PPID\""]
     onExited: function(exitCode) {
       // No output to read the lock off yet.
       if (exitCode === 2) return
@@ -757,7 +756,7 @@ Item {
 
   Process {
     id: wakeProcess
-    command: ["quattro-system-wake"]
+    command: ["bash", "-c", "quattro-system-wake"]
   }
 
   Process {

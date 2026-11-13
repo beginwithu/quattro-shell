@@ -9,6 +9,7 @@ Item {
   id: root
 
   property var shell: null
+  property string quattroPath: Quickshell.env("QUATTRO_PATH")
 
   readonly property int batteryThreshold: 10
   property string pendingPowerSource: ""
@@ -25,6 +26,14 @@ Item {
     id: persisted
     reloadableId: "quattro-battery"
     property bool notifiedLowBattery: false
+  }
+
+  function batteryPercentage() {
+    return BatteryModel.batteryPercentage(UPower.displayDevice)
+  }
+
+  function isDischarging() {
+    return BatteryModel.isDischarging(UPower.displayDevice, UPower.onBattery, UPowerDeviceState.Discharging)
   }
 
   function checkBattery() {
@@ -78,10 +87,7 @@ Item {
   Process {
     id: powerProfileProcess
     onExited: {
-      if (root.pendingPowerSource !== "") {
-        Qt.callLater(root.runPendingPowerProfile)
-        return
-      }
+      if (root.pendingPowerSource !== "") root.runPendingPowerProfile()
       root.refreshPowerProfile()
     }
   }

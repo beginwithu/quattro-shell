@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# quattro:summary=Print the active Quattro package channel
+
+set -euo pipefail
+
+# Dev is a linked source checkout: QUATTRO_PATH points somewhere other than
+# the package-backed install at /usr/share/quattro. This takes precedence over
+# the package channels, since the checkout overrides whatever is installed.
+if [[ $QUATTRO_PATH != "/usr/share/quattro" ]]; then
+  echo dev
+  exit 0
+fi
+
+# quattro-dev / quattro-settings-dev are only shipped from the edge package
+# repo, so their presence alone means edge. quattro / quattro-settings come
+# from either the stable or rc mirror, distinguished by quattro-version-channel
+# (which reports the mirror as its first token).
+if pacman -Q quattro-dev quattro-settings-dev >/dev/null 2>&1; then
+  echo edge
+elif pacman -Q quattro quattro-settings >/dev/null 2>&1; then
+  channel=$(quattro-version-channel 2>/dev/null | awk '{ print $1 }')
+  case "$channel" in
+    stable) echo stable ;;
+    rc) echo rc ;;
+    *) echo unknown ;;
+  esac
+else
+  echo unknown
+fi

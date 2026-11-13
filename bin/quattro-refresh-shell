@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# quattro:summary=Reset shell.json to Quattro defaults
+# quattro:examples=quattro refresh shell
+
+set -euo pipefail
+
+quattro-refresh-config quattro/shell.json
+quattro-bar defaults
+
+quattro-restart-shell

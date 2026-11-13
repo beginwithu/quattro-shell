@@ -60,6 +60,14 @@ Item {
     else root.open("{}")
   }
 
+  function normalizeEntry(value) {
+    return ClipboardHistory.normalizeEntry(value)
+  }
+
+  function entryKey(entry) {
+    return ClipboardHistory.entryKey(entry)
+  }
+
   function loadHistory(raw) {
     root.history = ClipboardHistory.parseHistory(raw)
     if (root.opened) root.rebuildDisplay()

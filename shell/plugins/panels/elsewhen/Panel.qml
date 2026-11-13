@@ -602,7 +602,6 @@ Panel {
   function refresh() {
     if (probeIds.length === 0) return
     if (probeProc.running) { probeQueued = true; return }
-    probeProc.command = Model.probeCommand(probeIds, true)
     probeProc.running = true
   }
 
@@ -730,11 +729,6 @@ Panel {
   Process {
     id: probeProc
     command: Model.probeCommand(root.probeIds, true)
-    onRunningChanged: if (!running) Qt.callLater(function() {
-      if (!root.probeQueued) return
-      root.probeQueued = false
-      root.refresh()
-    })
     stdout: StdioCollector {
       onStreamFinished: {
         root.probe = Model.parseProbe(text)
@@ -754,11 +748,6 @@ Panel {
   // Merged, so a known offset stays on screen while the next probe runs.
   Process {
     id: searchProc
-    onRunningChanged: if (!running) Qt.callLater(function() {
-      if (!root.searchProbeQueued) return
-      root.searchProbeQueued = false
-      root.probeSearchZones()
-    })
     stdout: StdioCollector {
       onStreamFinished: {
         var merged = {}
@@ -792,11 +781,6 @@ Panel {
   Process {
     id: geoProc
     property var rows: []
-    onRunningChanged: if (!running && !weatherProc.running) Qt.callLater(function() {
-      if (!root.factsQueued || geoProc.running || weatherProc.running) return
-      root.factsQueued = false
-      root.refreshFacts()
-    })
     stdout: StdioCollector {
       onStreamFinished: {
         var answers = text.split("\n\u001e\n")
@@ -883,11 +867,6 @@ Panel {
     id: weatherProc
     property var keys: []
     property var points: []
-    onRunningChanged: if (!running && !geoProc.running) Qt.callLater(function() {
-      if (!root.factsQueued || geoProc.running || weatherProc.running) return
-      root.factsQueued = false
-      root.refreshFacts()
-    })
     stdout: StdioCollector {
       onStreamFinished: {
         root.weather = Object.assign({}, root.weather, Model.parseForecast(text, weatherProc.keys, Date.now(), weatherProc.points))

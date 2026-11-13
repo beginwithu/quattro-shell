@@ -42,7 +42,8 @@ PanelWindow {
   }
 
   function focusedScreen() {
-    var name = Commons.Compositor.focusedMonitorName
+    var monitor = Hyprland.focusedMonitor
+    var name = monitor ? String(monitor.name || "") : ""
     for (var i = 0; i < Quickshell.screens.length; i++) {
       if (Quickshell.screens[i].name === name) return Quickshell.screens[i]
     }
@@ -53,9 +54,9 @@ PanelWindow {
   // scale can lag behind Qt. Refresh on opening and on scale changes while open.
   onShownChanged: {
     targetScreen = shown ? focusedScreen() : null
-    if (shown) Commons.Compositor.refreshMonitors()
+    if (shown) Hyprland.refreshMonitors()
   }
-  onDevicePixelRatioChanged: if (shown) Commons.Compositor.refreshMonitors()
+  onDevicePixelRatioChanged: if (shown) Hyprland.refreshMonitors()
 
   Connections {
     target: Quickshell

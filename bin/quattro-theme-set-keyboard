@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# quattro:summary=Apply the current theme keyboard color to supported keyboards
+# quattro:hidden=true
+
+quattro-theme-set-keyboard-asus-rog
+quattro-theme-set-keyboard-f16

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# quattro:summary=Enable, disable, or toggle the touch functionality of the screen
+# quattro:args=[on|off|toggle]
+
+exec quattro-toggle-input-device touchscreen "${1:-toggle}"

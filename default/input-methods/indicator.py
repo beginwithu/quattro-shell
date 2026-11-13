@@ -232,7 +232,7 @@ def watch(bus):
       indicator.last = ""
       # Keep the configured cadence: a timed-out call is not a configuration
       # change, and a vanished service is followed by its bus name.
-      state = {"methods": [], "current": "", "name": "", "label": "", "language": ""}
+      state = {"methods": [], "current": "", "name": "", "language": ""}
     else:
       # A failed group count keeps the reading and the last cadence.
       try:
@@ -292,7 +292,7 @@ def watch(bus):
     if not data:
       loop.quit()
       return GLib.SOURCE_REMOVE
-    buffer += data.decode(errors="replace")
+    buffer += data.decode()
     while "\n" in buffer:
       line, buffer = buffer.split("\n", 1)
       if line in ("cycle", "cycle back"):

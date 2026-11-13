@@ -29,6 +29,11 @@ Item {
   readonly property var sourceCyclePlayers: orderedCycleSourcePlayers()
   readonly property var activePlayer: selectActivePlayer()
   readonly property bool hasMedia: activePlayer !== null && (activePlayer.trackTitle || activePlayer.trackArtist)
+  readonly property string title: activePlayer ? (activePlayer.trackTitle || "") : ""
+  readonly property string artist: activePlayer ? (activePlayer.trackArtist || "") : ""
+  readonly property string album: activePlayer && activePlayer.trackAlbum ? activePlayer.trackAlbum : ""
+  readonly property string artUrl: activePlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
+  readonly property string identity: activePlayer ? (activePlayer.identity || activePlayer.desktopEntry || "") : ""
 
   function isProxyPlayer(player) {
     return MediaModel.isProxyPlayer(player)
@@ -36,6 +41,14 @@ Item {
 
   function hasMetadata(player) {
     return MediaModel.hasMetadata(player)
+  }
+
+  function hasTrackMetadata(player) {
+    return MediaModel.hasTrackMetadata(player)
+  }
+
+  function playerCanControl(player) {
+    return MediaModel.playerCanControl(player)
   }
 
   function canHandleAction(player, action) {
@@ -46,8 +59,24 @@ Item {
     return MediaModel.canCycleSource(player)
   }
 
+  function nodeProps(node) {
+    return MediaModel.nodeProps(node)
+  }
+
   function isPlaybackStream(node) {
     return MediaModel.isPlaybackStream(node)
+  }
+
+  function streamLabelKey(label) {
+    return MediaModel.streamLabelKey(label)
+  }
+
+  function rawStreamLabel(node) {
+    return MediaModel.rawStreamLabel(node)
+  }
+
+  function playerAppLabel(player) {
+    return MediaModel.playerAppLabel(player)
   }
 
   function playerHasPlaybackStream(player) {
@@ -434,7 +463,7 @@ Item {
 
     // The payload quattro-osd builds, from the values just set: the node may
     // not report them back before the OSD draws.
-    if (shell) shell.summon("quattro.osd", JSON.stringify({
+    shell.summon("quattro.osd", JSON.stringify({
       icon: MediaModel.volumeOsdIcon(step.percent, step.muted),
       message: "",
       value: String(step.percent),

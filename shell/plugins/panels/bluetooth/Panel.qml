@@ -39,6 +39,18 @@ Panel {
     return Model.deviceLabel(device)
   }
 
+  function isUuidLike(value) {
+    return Model.isUuidLike(value)
+  }
+
+  function isAddressLike(value) {
+    return Model.isAddressLike(value)
+  }
+
+  function hasHumanName(device) {
+    return Model.hasHumanName(device)
+  }
+
   readonly property var deviceGroups: Model.deviceLists(devices)
   readonly property var connectedDevices: deviceGroups.connected || []
   readonly property var knownDevices: deviceGroups.known || []
@@ -100,12 +112,17 @@ Panel {
     : "transparent"
 
   function sectionCount(section) {
-    return devicesForSection(section).length
+    if (section === "connected") return connectedDevices.length
+    if (section === "known") return knownDevices.length
+    if (section === "discovered") return discoveredDevices.length
+    return 0
   }
 
   function sectionVisible(section) {
-    if (section === "discovered" && !(adapter && adapter.discovering)) return false
-    return sectionCount(section) > 0
+    if (section === "connected") return connectedDevices.length > 0
+    if (section === "known") return knownDevices.length > 0
+    if (section === "discovered") return adapter && adapter.discovering && discoveredDevices.length > 0
+    return false
   }
 
   readonly property var visibleSections: {
@@ -144,11 +161,11 @@ Panel {
   // dangle mid-incubation. `devices` is already the raw device array (see the
   // property declaration), so it is iterated directly.
   function deviceFor(row) {
-    if (!row || !row.dev || !row.dev.address) return null
-    var addr = row.dev.address
+    if (!row || !row.dev) return null
+    var addr = row.dev.address || ""
     var devs = devices || []
     for (var i = 0; i < devs.length; i++) {
-      if (devs[i] && devs[i].address === addr) return devs[i]
+      if ((devs[i].address || "") === addr) return devs[i]
     }
     return null
   }
@@ -397,9 +414,8 @@ Panel {
       if (adapter !== null && adapter.discovering) owesDiscoveryStop = true
       if (connectedDevices.length > 0) { focusSection = "connected"; selectedIndex = 0 }
       else if (knownDevices.length > 0) { focusSection = "known"; selectedIndex = 0 }
-      else if (sectionVisible("discovered")) { focusSection = "discovered"; selectedIndex = 0 }
+      else if (discoveredDevices.length > 0) { focusSection = "discovered"; selectedIndex = 0 }
       else { focusSection = "header" }
-      updateFocusedAddress()
       actionFocused = false
       cursorActive = false
     }
@@ -424,33 +440,35 @@ Panel {
   }
 
   function reselectFocusedDevice() {
-    var target = focusedDeviceAddress
-    if (target !== "") {
-      var sections = ["connected", "known", "discovered"]
-      for (var s = 0; s < sections.length; s++) {
-        var section = sections[s]
-        if (!sectionVisible(section)) continue
-        var list = devicesForSection(section)
-        for (var i = 0; i < list.length; i++) {
-          if (list[i] && list[i].address === target) {
-            focusSection = section
-            selectedIndex = i
-            clampCursor()
-            updateFocusedAddress()
-            return
-          }
+    if (focusedDeviceAddress === "") {
+      clampCursor()
+      return
+    }
+
+    var sections = ["connected", "known", "discovered"]
+    for (var s = 0; s < sections.length; s++) {
+      var section = sections[s]
+      if (!sectionVisible(section)) continue
+      var list = devicesForSection(section)
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].address === focusedDeviceAddress) {
+          focusSection = section
+          selectedIndex = i
+          clampCursor()
+          return
         }
       }
     }
 
     clampCursor()
-    updateFocusedAddress()
   }
 
   onSelectedIndexChanged: updateFocusedAddress()
   onFocusSectionChanged: updateFocusedAddress()
-  onDeviceGroupsChanged: { reselectFocusedDevice(); syncPendingActions() }
-  onVisibleSectionsChanged: reselectFocusedDevice()
+  onConnectedDevicesChanged: { reselectFocusedDevice(); syncPendingActions() }
+  onKnownDevicesChanged: { reselectFocusedDevice(); syncPendingActions() }
+  onDiscoveredDevicesChanged: { reselectFocusedDevice(); syncPendingActions() }
+  onVisibleSectionsChanged: clampCursor()
 
   function clampCursor() {
     var sections = visibleSections
@@ -543,7 +561,7 @@ Panel {
   Connections {
     target: root.adapter
     function onDiscoveringChanged() {
-      if (!root.adapter || !root.adapter.discovering) root.owesDiscoveryStop = false
+      if (!root.adapter.discovering) root.owesDiscoveryStop = false
     }
   }
 

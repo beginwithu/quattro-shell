@@ -19,16 +19,18 @@ ShellRoot {
   // rather than re-importing them as singletons — relative-path imports do
   // not share singleton state, which silently leaves consumers with their
   // own empty copies.
-  property PluginRegistry pluginRegistry: PluginRegistry { firstPartyDir: shell.firstPartyPluginsDir }
+  property PluginRegistry pluginRegistry: PluginRegistry { }
   property BarWidgetRegistry barWidgetRegistry: BarWidgetRegistry { }
   property AppLibrary appLibrary: AppLibrary { }
   property BrightnessKeys brightnessKeys: BrightnessKeys { host: shell }
+  property BackgroundIntro bootIntro: BackgroundIntro { host: shell }
+  property BackgroundSwitch backgroundSwitch: BackgroundSwitch { intro: shell.bootIntro }
 
   property string home: Quickshell.env("HOME")
 
   // The quattro-shell host is the long-running entry point. Plugins live in
-  // sibling directories under plugins/. QUATTRO_PATH is provided by
-  // quattro-launch-shell and is the single source of truth for this checkout.
+  // sibling directories under plugins/. QUATTRO_PATH is provided by the uwsm
+  // session environment and is the single source of truth for this checkout.
   property string quattroPath: Quickshell.env("QUATTRO_PATH")
   readonly property string shellPath: quattroPath + "/shell"
   readonly property string firstPartyPluginsDir: shellPath + "/plugins"
@@ -64,11 +66,19 @@ ShellRoot {
   property bool userConfigUnreadable: false
   property bool pluginReloading: false
   property bool pluginReloadPending: false
+  property bool localPluginNeedsReload: false
 
   Timer {
     id: localPluginReloadTimer
     interval: 150
-    onTriggered: shell.reloadPlugins()
+    onTriggered: {
+      if (shell.localPluginNeedsReload) {
+        shell.localPluginNeedsReload = false
+        shell.reloadPlugins()
+      } else {
+        shell.rescanPlugins()
+      }
+    }
   }
 
   onShellConfigChanged: {
@@ -155,11 +165,6 @@ ShellRoot {
   }
 
   Component.onCompleted: {
-    if (!Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE")) {
-      console.error("quattro-shell requires Hyprland (HYPRLAND_INSTANCE_SIGNATURE is not set)")
-      Qt.quit()
-      return
-    }
     console.log("quattro-shell paths",
       "quattroPath=" + shell.quattroPath,
       "shellDir=" + Quickshell.shellDir,
@@ -249,10 +254,9 @@ ShellRoot {
     Bar {
       quattroPath: shell.quattroPath
       barWidgetRegistry: shell.barWidgetRegistry
-      pluginRegistry: shell.pluginRegistry
       barConfig: shell.barConfig
       shell: shell
-      manifest: shell.activeBarManifest
+      manifest: shell.barManifestFor(shell.defaultBarId)
     }
   }
 
@@ -261,8 +265,8 @@ ShellRoot {
 
     active: shell.activeBarId === shell.defaultBarId
     sourceComponent: defaultBarComponent
-    onLoaded: shell.bar = item
-    onActiveChanged: if (!active && shell.bar !== pluginBarLoader.item) shell.bar = null
+    onLoaded: shell.configureBar(item, shell.barManifestFor(shell.defaultBarId))
+    onActiveChanged: if (!active && shell.activeBarId !== shell.defaultBarId) shell.bar = null
   }
 
   Loader {
@@ -272,7 +276,7 @@ ShellRoot {
     source: shell.activeBarId !== shell.defaultBarId ? shell.activeBarSourceUrl : ""
     asynchronous: true
     onLoaded: shell.configureBar(item, shell.activeBarManifest)
-    onActiveChanged: if (!active && shell.bar !== defaultBarLoader.item) shell.bar = null
+    onActiveChanged: if (!active) shell.bar = null
     onStatusChanged: {
       if (status === Loader.Error) {
         console.warn("bar option " + shell.activeBarId + " failed to load, falling back to " + shell.defaultBarId)
@@ -911,8 +915,6 @@ ShellRoot {
     }
     for (var entryKey in _pluginBarEntryShellApis)
       _pluginBarEntryShellApis[entryKey].barConfig = shell.publicBarConfig()
-    if (pluginBarLoader.item && "manifest" in pluginBarLoader.item)
-      pluginBarLoader.item.manifest = shell.publicPluginManifest(shell.activeBarManifest)
   }
 
   // Reassigned as each service registers, so a binding that reads this before
@@ -1521,6 +1523,34 @@ ShellRoot {
     pluginWidgetComponents = ({})
   }
 
+  // A rescan asked for while another scan ran; it stays a rescan.
+  property bool pluginRescanPending: false
+
+  // The watcher names a plugin by its folder, which need not be its manifest
+  // id (Superwhisper's superwhisper-panel folder holds superwhisper.panel).
+  function localPluginLoaded(dirName) {
+    var dir = String(shell.pluginRegistry.pluginsDir || "").replace(/\/+$/, "") + "/" + dirName
+    var installed = shell.pluginRegistry.installedPlugins || ({})
+    for (var id in installed) {
+      var source = String((installed[id] && installed[id].__sourceDir) || "").replace(/\/+$/, "")
+      if (source === dir) return true
+    }
+    return false
+  }
+
+  // Rescan without closing anything: the syncs after the scan add, update and
+  // drop plugins in place. Only fresh code needs the full reload, which closes
+  // every panel and unloads every service. A first login linking a new
+  // plugin's panel (Superwhisper's setup) otherwise closed the menu and
+  // blanked the wallpaper.
+  function rescanPlugins() {
+    if (shell.pluginReloading || shell.pluginRegistry.scanning) {
+      shell.pluginRescanPending = true
+      return
+    }
+    shell.pluginRegistry.rescan()
+  }
+
   function reloadPlugins() {
     if (shell.pluginReloading || shell.pluginRegistry.scanning) {
       shell.pluginReloadPending = true
@@ -1546,13 +1576,18 @@ ShellRoot {
   Connections {
     target: shell.pluginRegistry
     function onLocalPluginChanged(pluginId) {
-      console.log("Local plugin changed, reloading:", pluginId)
+      // An edit to a plugin the shell already runs needs its fresh code; a
+      // plugin that just appeared only needs adding.
+      if (shell.localPluginLoaded(pluginId))
+        shell.localPluginNeedsReload = true
+      console.log("Local plugin changed:", pluginId)
       localPluginReloadTimer.restart()
     }
     function onScanFinished() {
       if (shell.pluginReloadPending) {
         shell.pluginReloadPending = false
         shell.pluginReloading = false
+        shell.pluginRescanPending = false
         Qt.callLater(shell.reloadPlugins)
         return
       }
@@ -1560,6 +1595,10 @@ ShellRoot {
       shell._syncServices()
       shell.syncPanelEntries()
       shell.syncPluginWidgets()
+      if (shell.pluginRescanPending) {
+        shell.pluginRescanPending = false
+        Qt.callLater(shell.rescanPlugins)
+      }
     }
   }
 
@@ -1623,18 +1662,17 @@ ShellRoot {
     } else if (entry.kind === "ipc") {
       // "media.next" runs the media service's own IPC handler for next.
       var dot = entry.target.indexOf(".")
-      if (dot <= 0) return
       var target = entry.target.slice(0, dot)
       var method = entry.target.slice(dot + 1)
-      var service = shell.firstPartyServiceFor(shell.ipcShortcutServices[target] || "")
-      if (!service || typeof service.runShortcut !== "function" || !service.runShortcut(method))
+      var service = shell.serviceFor(shell.ipcShortcutServices[target] || "")
+      if (!service || !service.runShortcut(method))
         Util.execArgv(["quattro-shell", target, method])
     } else if (entry.kind === "brightness") {
       if (!shell.brightnessKeys.handle(entry.target))
         Util.execArgv(["quattro-brightness-display", entry.target === "raise" ? "+5%" : "5%-"])
     } else if (entry.kind === "audio") {
-      var media = shell.firstPartyServiceFor("quattro.media")
-      if (!media || typeof media.handleVolumeKey !== "function" || !media.handleVolumeKey(entry.target))
+      var media = shell.serviceFor("quattro.media")
+      if (!media || !media.handleVolumeKey(entry.target))
         Util.execArgv(["quattro-audio-output-volume", entry.target])
     } else {
       shell.toggle(entry.target, "{}")
@@ -1645,7 +1683,6 @@ ShellRoot {
     id: shortcutsFile
     path: shell.quattroPath + "/default/quattro/shortcuts"
     watchChanges: true
-    printErrors: false
     onFileChanged: reload()
   }
 
@@ -1758,11 +1795,47 @@ ShellRoot {
   ShellIpc {
     target: "shell"
 
+    function prepareThemeIntro(fromPath: string, token: string, colorsB64: string, shellB64: string): void {
+      shell.bootIntro.prepareTheme(fromPath, token, colorsB64, shellB64)
+    }
+
+    // A theme switch whose cover is up hands the rest over: the still, the
+    // intro if there is one, the reveal and Hyprland's reload.
+    function playThemeIntro(token: string, stillPath: string, introPath: string, prepared: string): string {
+      return shell.backgroundSwitch.play(token, stillPath, introPath, prepared)
+    }
+
+    // quattro-theme-bg-set's change, with the intro it found or none.
+    function switchBackground(path: string, introPath: string): string {
+      return shell.backgroundSwitch.switchTo(path, introPath)
+    }
+
+    // What the latest background selection names, ahead of the link while
+    // its change is still queued or setting up.
+    function selectedBackground(): string {
+      return shell.backgroundSwitch.selected()
+    }
+
+    // A cover is up or revealing, so the screen does not yet show a frame a
+    // new switch could capture as its own outgoing cover.
+    function themeIntroBusy(): string {
+      return shell.backgroundSwitch.busy ? "pending" : "ready"
+    }
+
+    function themeIntroStatus(token: string): string {
+      return shell.bootIntro.themeStatus(token)
+    }
+
+    function themeIntroCoverStatus(token: string): string {
+      return shell.bootIntro.themeCoverStatus(token)
+    }
+
     function ping(): string {
       return "ok"
     }
 
     function applyTheme(colorsB64: string, shellB64: string): string {
+      if (shell.bootIntro) shell.bootIntro.cancelTheme()
       var background = shell.firstPartyServiceFor("quattro.background")
       if (background && typeof background.setPendingTheme === "function" && typeof background.applyPendingTheme === "function") {
         background.setPendingTheme(colorsB64, shellB64)
@@ -1785,7 +1858,13 @@ ShellRoot {
       return Commons.InputMethodState.cycle(direction === "back") ? "ok" : "not running"
     }
 
+    // Adds, updates and drops plugins in place, leaving running ones alone.
     function rescanPlugins(): void {
+      shell.rescanPlugins()
+    }
+
+    // Rebuilds every plugin from fresh code, for an update that kept its manifest.
+    function reloadPlugins(): void {
       shell.reloadPlugins()
     }
 

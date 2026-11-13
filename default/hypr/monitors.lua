@@ -1,6 +1,7 @@
 -- Quattro's monitor defaults: every monitor at its preferred mode, placed
--- automatically, at the scale Hyprland picks for it. Anything in
--- hypr/monitors.lua loads after these and wins.
+-- automatically, at the scale Hyprland picks for it. The display panel's
+-- choices for a monitor (default/hypr/monitor-settings.lua) and anything in
+-- hypr/monitors.lua load after these and win.
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
 
 -- GDK_SCALE is the factor GTK draws its own UI at, which sizes X11/XWayland

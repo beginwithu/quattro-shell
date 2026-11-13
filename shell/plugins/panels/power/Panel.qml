@@ -15,6 +15,7 @@ Panel {
   // permits — needed for the togglePercentage method below.
   manageIpc: false
   property var batteryInfo: ({})
+  property var systemInfo: ({})
   property var profiles: []
   property string activeProfile: ""
   property int profileIndex: 0
@@ -143,14 +144,16 @@ Panel {
 
     if (!batteryProc.running) batteryProc.running = true
     if (!profilesProc.running) profilesProc.running = true
+    if (!systemProc.running) systemProc.running = true
   }
 
-  function updateBattery(raw) {
+  function updateKeyValue(raw, targetName) {
     var next = Model.parseKeyValue(raw)
     // Keep last known good data if a refresh briefly returns nothing — happens
     // around AC plug/unplug events. Avoids the section collapsing mid-transition.
     if (Object.keys(next).length === 0) return
-    batteryInfo = next
+    if (targetName === "battery") batteryInfo = next
+    else systemInfo = next
   }
 
   function updateProfiles(raw) {
@@ -203,9 +206,6 @@ Panel {
       var idx = profiles.indexOf(activeProfile)
       profileIndex = idx >= 0 ? idx : 0
       cursorActive = false
-    } else {
-      phraseSwap.stop()
-      if (panel.loadedContent) panel.loadedContent.heroStatus.opacity = 1.0
     }
   }
 
@@ -218,13 +218,19 @@ Panel {
   Process {
     id: batteryProc
     command: ["quattro-battery-status", "--shell"]
-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.updateBattery(text) }
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.updateKeyValue(text, "battery") }
   }
 
   Process {
     id: profilesProc
     command: ["quattro-powerprofiles-list", "--active-state"]
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.updateProfiles(text) }
+  }
+
+  Process {
+    id: systemProc
+    command: ["quattro-system-stats"]
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.updateKeyValue(text, "system") }
   }
 
   Process {

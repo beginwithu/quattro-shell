@@ -32,7 +32,6 @@ Item {
   property bool stayAwakeStateLoaded: false
   property bool hasPendingStayAwakePersist: false
   property bool pendingStayAwakePersist: false
-  property bool stayAwakeProbePending: false
   property bool idledThisCycle: false
   property bool screensaverStartedThisCycle: false
   property string lastEvent: "starting"
@@ -194,17 +193,12 @@ Item {
       return
     }
 
-    stayAwakeStateWriter.command = ["bash", "-c", command]
+    stayAwakeStateWriter.command = ["bash", "-lc", command]
     stayAwakeStateWriter.running = true
   }
 
   function refreshStayAwakeState() {
-    if (stayAwakeStateProbe.running) {
-      root.stayAwakeProbePending = true
-      return
-    }
-    root.stayAwakeProbePending = false
-    stayAwakeStateProbe.running = true
+    if (!stayAwakeStateProbe.running) stayAwakeStateProbe.running = true
   }
 
   function applyStayAwake(value, persist, reason) {
@@ -288,17 +282,11 @@ Item {
 
   Process {
     id: stayAwakeStateProbe
-    command: ["bash", "-c", "mkdir -p \"$HOME/.local/state/quattro/indicators\"; if [[ -f \"$HOME/.local/state/quattro/indicators/stay-awake\" ]]; then echo yes; else echo no; fi"]
+    command: ["bash", "-c", "mkdir -p \"$HOME/.local/state/quattro/indicators\"; if [[ -f $HOME/.local/state/quattro/indicators/stay-awake ]]; then echo yes; else echo no; fi"]
     stdout: SplitParser {
-      onRead: function(line) {
-        if (stayAwakeStateWriter.running || root.hasPendingStayAwakePersist) return
-        root.applyStayAwake(String(line).trim() === "yes", false, "state-file")
-      }
+      onRead: function(line) { root.applyStayAwake(String(line).trim() === "yes", false, "state-file") }
     }
-    onExited: function() {
-      stayAwakeStateDirWatcher.reload()
-      if (root.stayAwakeProbePending) Qt.callLater(root.refreshStayAwakeState)
-    }
+    onExited: function() { stayAwakeStateDirWatcher.reload() }
   }
 
   Process {
@@ -307,7 +295,7 @@ Item {
       if (root.hasPendingStayAwakePersist) {
         var pending = root.pendingStayAwakePersist
         root.hasPendingStayAwakePersist = false
-        Qt.callLater(function() { root.persistStayAwake(pending) })
+        root.persistStayAwake(pending)
         return
       }
 

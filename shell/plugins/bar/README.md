@@ -8,15 +8,15 @@ the shell for its whole session.
 - `manifest.json` declares the plugin (`id: quattro.bar`, `kind: bar`) and points at `Bar.qml` as the entry point.
 - `Bar.qml` is Quattro-owned bar engine code, loaded by the quattro-shell host. Users should not edit it directly.
 - `widgets/` holds simple first-party bar widgets with sibling manifests.
-- Feature plugins such as `../panels/audio/`, `../panels/network/`, `../panels/power/`, and `../panels/bluetooth/` provide richer popup bar plugins.
+- Feature plugins such as `../panels/audio/`, `../panels/network/`, and `../panels/power/` provide richer popup bar plugins.
 - The bar receives its config from the host shell as a `barConfig` property; the host loads it from `~/.config/quattro/shell.json` (or `config/quattro/shell.json` when the user has no file).
-- `quattro-bar position` updates only the user shell.json file.
+- `quattro bar position` updates only the user shell.json file.
 
 ## Customizing
 
-The bar config lives under the `bar:` key of `~/.config/quattro/shell.json`. Out of the box the shell uses [`config/quattro/shell.json`](../../../config/quattro/shell.json). Once you customize anything via the bar gestures, `quattro-bar ...`, or by editing shell.json directly, your file is canonical — there is no deep-merge.
+The bar config lives under the `bar:` key of [`~/.config/quattro/shell.json`](../../../docs/quattro-shell.md#shelljson). Out of the box the shell uses [`config/quattro/shell.json`](../../../config/quattro/shell.json). Once you customize anything via the bar gestures, `quattro bar ...`, or by editing shell.json directly, your file is canonical — there is no deep-merge.
 
-The bar is configured directly on the bar itself: drag empty bar space (or click-and-hold) to move the bar to another screen edge, double-left-click empty center-bar space to cycle the bar background from clear to glassy to opaque, and drag widgets to reorder them. The `quattro-bar position`, `quattro-bar background`, `quattro-bar get`, `quattro-bar set`, and `quattro-bar defaults` commands configure the bar from scripts, along with `quattro-shell shell` IPC (`listPlugins`, `enablePlugin`, `setPluginEnabled`, `moveBarWidget`, `setBarWidget`).
+The bar is configured directly on the bar itself: drag empty bar space (or click-and-hold) to move the bar to another screen edge, double-left-click empty center-bar space to cycle the bar background from clear to glassy to opaque, and drag widgets to reorder them. The `quattro bar position`, `quattro bar background`, `quattro bar move`, and `quattro bar set` commands do the same from scripts. Enable or disable widgets with `quattro plugin enable` and `quattro plugin disable` (widget ids come from `quattro plugin list`).
 
 Example `shell.json` (bar subtree only shown):
 
@@ -57,22 +57,23 @@ Example `shell.json` (bar subtree only shown):
 | Name | What it does | Interactions |
 |---|---|---|
 | `quattro.menu` | Quattro menu launcher | left = menu · right = terminal |
-| `quattro.workspaces` | Hyprland workspace switcher | left = focus workspace · scroll = prev/next |
-| `quattro.active-window` | Title of the focused window | left = activate · middle/right = close |
+| `quattro.workspaces` | Hyprland workspace switcher; the focused workspace shows its layout | left = focus workspace, or cycle the focused one's layout |
 | `quattro.clock` | Date/time label + popup with a month grid, ISO week numbers, and month stepping | left = popup · right = cycle label format · middle = timezone selector |
-| `quattro.elsewhen` | World clock and solar globe panel | left = popup |
 | `quattro.media` | MPRIS now-playing — scrolling track + artist, cover-art popup | left = play/pause · middle = next · scroll = prev/next · right = popup |
 | `quattro.indicators` | Manual state indicators | left = indicator action |
-| `quattro.keyboard-layout` | Current keyboard layout and input method | left = cycle |
+| `quattro.system-update` | Available update indicator | left = update |
 | `quattro.tray` | System tray | hover = reveal drawer · right on chevron = manage |
 | `quattro.weather` | Weather icon + popup with forecast | left = popup · right = full notification |
 | `quattro.microphone` | Mic icon + scroll volume | left = mute toggle · middle = audio panel · scroll = source volume |
+
 | `quattro.audio` | Volume icon + popup with master slider, output-device picker, per-app mixer | left = popup · right = mute · middle = popup · scroll = volume |
 | `quattro.network` | Wi-Fi/Ethernet icon + popup with Wi-Fi scan, signal, connect, DNS provider selection | left = popup |
+| `quattro.tailscale` | Tailscale status, connection switcher, machine browser, and copy actions | left = popup · right = toggle · middle = refresh |
 | `quattro.power` | Battery/AC icon + popup with battery stats, power profiles, and system info | left = popup · right = toggle percentage |
 | `quattro.bluetooth` | Bluetooth icon + popup with device list, connect/disconnect, battery | left = popup · right = toggle radio |
+| `quattro.monitor` | Brightness and laptop display controls | left = popup |
 
-The `quattro.indicators` widget loads individual bar indicators from `indicators/`. Omit `items` (or set it to an empty array) to show all indicators in the default order, or set `items` to a subset such as `["Dnd", "NightLight", "StayAwake"]`. Set `alwaysShow` to `true` to keep inactive indicators visible instead of revealing them only on hover. Multiple `quattro.indicators` instances are allowed, so different sections can show different subsets.
+The `quattro.indicators` widget loads individual bar indicators from `indicators/`. Omit `items` (or set it to an empty array) to show all indicators in the default order, or set `items` to a subset such as `["Dnd", "Reminder", "NightLight"]`. Set `alwaysShow` to `true` to keep inactive indicators visible instead of revealing them only on hover. Multiple `quattro.indicators` instances are allowed, so different sections can show different subsets.
 
 ## Orientation
 
@@ -158,7 +159,7 @@ Item {
 
   MouseArea {
     anchors.fill: parent
-    onClicked: if (bar) bar.run("quattro-launch-tui btop")
+    onClicked: if (bar) bar.run("quattro-launch-or-focus-tui btop")
   }
 }
 ```
@@ -179,9 +180,9 @@ Widgets receive `bar` (the shell root), `moduleName` (string), and `settings` (o
 First-party bar widgets are manifest-backed just like third-party widgets.
 Simple widgets carry sibling manifests such as `widgets/Workspaces.manifest.json`;
 richer popup plugins live in feature directories such as `../panels/audio/`,
-`../panels/network/`, and `../panels/bluetooth/`; and feature plugins such as
+`../panels/network/`, and `../panels/power/`; and feature plugins such as
 `quattro.menu` and `quattro.media` declare their bar-widget entry points in their own
 `manifest.json`. Bar layout ids are namespaced, e.g. `quattro.audio`,
 `quattro.network`, and `quattro.clock`.
 
-Third-party widgets ship as separate plugins under `~/.config/quattro/plugins/<plugin-id>/` with their own `manifest.json` declaring `kinds: ["bar-widget"]` and a `barWidget` entry point. Rescan, enable, and place third-party plugins with `quattro-shell shell rescanPlugins`, `quattro-shell shell enablePlugin`, and `quattro-shell shell moveBarWidget`.
+Third-party widgets ship as separate plugins under `~/.config/quattro/plugins/<plugin-id>/` with their own `manifest.json` declaring `kinds: ["bar-widget"]` and a `barWidget` entry point. See the [shell reference](../../../docs/quattro-shell.md#plugin-manifest) for the manifest schema. Rescan, enable, and place third-party plugins with `quattro-shell shell rescanPlugins`, `quattro plugin enable`, and `quattro bar move`.

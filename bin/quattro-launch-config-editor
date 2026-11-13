@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# quattro:summary=Open a config file in the user's editor and surface a toast
+# quattro:args=<path>
+# quattro:examples=quattro launch config-editor ~/.config/hypr/hyprland.lua
+
+path="${1-}"
+
+if [[ -z $path ]]; then
+  echo "Usage: quattro-launch-config-editor <path>" >&2
+  exit 1
+fi
+
+quattro-notification-send -u low "$(quattro-i18n config.editing)" "$path"
+exec quattro-launch-editor "$path"

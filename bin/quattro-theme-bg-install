@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# quattro:summary=Open the current theme's user background folder
+
+CURRENT_THEME_NAME=$(cat "$HOME/.local/state/quattro/current/theme.name")
+THEME_USER_BACKGROUNDS="$HOME/.config/quattro/backgrounds/$CURRENT_THEME_NAME"
+
+mkdir -p "$THEME_USER_BACKGROUNDS"
+folio "$THEME_USER_BACKGROUNDS"

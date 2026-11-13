@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Networking
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -13,6 +14,7 @@ Panel {
   manageIpc: false
 
   property var anchorItem: null
+  property bool openedFromHotkey: false
 
   // The bar tracks the widget mounted in its slot — BarWidget.qml — not this
   // nested panel. Everything the bar identifies a panel by has to be that
@@ -23,41 +25,33 @@ Panel {
   readonly property var barIdentity: hostWidget || root
 
   function open() {
+    openedFromHotkey = false
     root.controller.show()
     locationFile.reload()
     root.refresh()
-    // Set after showing, not before: showing hands the popout coordinator
-    // over, which closes whichever panel was open, and that close clears the
-    // shared flag. Deferring means the panel taking over always wins, while
-    // a handoff to a panel that does not manage the flag still leaves it
-    // cleared rather than stuck on.
-    Qt.callLater(function() {
-      if (root.opened) setCenterHoverRevealSuppressed(true)
-    })
+  }
+
+  function openFromHotkey() {
+    openedFromHotkey = true
+    root.controller.show()
+    locationFile.reload()
+    root.refresh()
   }
 
   function close() {
-    setCenterHoverRevealSuppressed(false)
     if (root.editingLocation) root.cancelEditingLocation()
     root.controller.hide()
   }
 
   function toggle() {
     if (root.opened) root.close()
-    else root.open()
+    else root.openFromHotkey()
   }
 
   function switchPanel(direction) {
     if (root.bar && typeof root.bar.switchPanelFrom === "function")
       return root.bar.switchPanelFrom(root.barIdentity, direction)
     return false
-  }
-
-  function setCenterHoverRevealSuppressed(value) {
-    if (root.bar && typeof root.bar.setCenterHoverRevealSuppressed === "function")
-      root.bar.setCenterHoverRevealSuppressed(value)
-    else if (root.bar && "centerHoverRevealSuppressed" in root.bar)
-      root.bar.centerHoverRevealSuppressed = value
   }
 
   // Parsed wttr.in j1 response. Kept on failure so stale data stays visible.
@@ -69,7 +63,7 @@ Panel {
   property var configuredLocationState: ({ name: "", latitude: null, longitude: null })
   readonly property string configuredLocation: configuredLocationState.name
 
-  // With nothing configured, where the IP geolocation lookup places this network, in the
+  // With nothing configured, where geo.quattro.org places this network, in the
   // same shape. Kept when a later lookup fails.
   property var detectedLocationState: ({ name: "", latitude: null, longitude: null })
   property bool detectingLocation: false
@@ -78,7 +72,7 @@ Panel {
 
   // The query is the wttr.in path segment (coordinates when known, else the
   // encoded name); empty means wttr.in's own IP auto-detect, used only when
-  // the IP geolocation lookup could not answer.
+  // geo.quattro.org could not answer.
   readonly property var locationState: Model.effectiveLocation(configuredLocationState, detectedLocationState)
   readonly property string locationQuery: Model.wttrLocationQuery(locationState.name, locationState.latitude, locationState.longitude)
 
@@ -162,7 +156,7 @@ Panel {
     // starve retries for the rest of the session.
     forecastRetries = 0
     dailyForecastRetries = 0
-    // Until the IP geolocation lookup answers there is nothing to ask for: wait for it
+    // Until geo.quattro.org answers there is nothing to ask for: wait for it
     // rather than have wttr.in look this machine up. Its answer, or its
     // failure, refreshes again.
     if (detectingLocation && locationQuery === "") return
@@ -230,9 +224,6 @@ Panel {
     editingLocation = false
     savingLocation = false
     savingLocationQueryStarted = false
-    geocodePendingQuery = ""
-    geocodeActiveQuery = ""
-    geocodeProc.running = false
     locationSuggestions = []
     geocodeDebounce.stop()
     Qt.callLater(function() { if (panel.loadedContent) panel.loadedContent.forceActiveFocus() })
@@ -293,9 +284,6 @@ Panel {
     var locationField = root.locationInput()
     var query = locationField ? locationField.text.trim() : ""
     if (query.length < 2) {
-      geocodePendingQuery = ""
-      geocodeActiveQuery = ""
-      geocodeProc.running = false
       locationSuggestions = []
       return
     }
@@ -304,7 +292,6 @@ Panel {
   }
 
   function startGeocode() {
-    if (geocodeProc.running || !editingLocation || geocodePendingQuery.length < 2) return
     geocodeActiveQuery = geocodePendingQuery
     geocodeProc.command = ["curl", "-fsS", "--max-time", "5",
       "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(geocodeActiveQuery) + "&count=5&language=en&format=json"]
@@ -313,6 +300,26 @@ Panel {
 
   function buildForecastDays() {
     return Model.buildForecastDays(report, dailyForecastReport, Qt.formatDate(new Date(), "yyyy-MM-dd"))
+  }
+
+  function openMeteoForecastDays() {
+    return Model.openMeteoForecastDays(dailyForecastReport, Qt.formatDate(new Date(), "yyyy-MM-dd"))
+  }
+
+  function wttrNextForecastDays() {
+    return Model.wttrNextForecastDays(report, Qt.formatDate(new Date(), "yyyy-MM-dd"))
+  }
+
+  function isFutureForecastDate(dateString) {
+    return Model.isFutureForecastDate(dateString, Qt.formatDate(new Date(), "yyyy-MM-dd"))
+  }
+
+  function roundedTemp(value) {
+    return Model.roundedTemp(value)
+  }
+
+  function celsiusToFahrenheit(value) {
+    return Model.celsiusToFahrenheit(value)
   }
 
   function formatTemp(value) {
@@ -332,6 +339,15 @@ Panel {
   // Representative icon for a forecast day: the hourly entry nearest noon.
   function dayIcon(day) {
     return Model.dayIcon(day)
+  }
+
+  function iconForOpenMeteoCode(code) {
+    return Model.iconForOpenMeteoCode(code)
+  }
+
+  // Mirrors quattro-weather-icon's wttr.in code → nerd-font glyph mapping.
+  function iconForCode(code, night) {
+    return Model.iconForCode(code, night)
   }
 
   Process {
@@ -369,11 +385,7 @@ Panel {
   // wttr.in can be slow or flaky, especially for a location it hasn't
   // cached yet. Retry a few times before leaving it to the refresh timer.
   function scheduleForecastRetry() {
-    if (forecastRetries >= 3) {
-      if (Model.weatherResponseCompletesSave(root.hasConfiguredCoordinates, "wttr"))
-        root.finishSavingLocation()
-      return
-    }
+    if (forecastRetries >= 3) return
     forecastRetries++
     forecastRetryTimer.restart()
   }
@@ -388,11 +400,7 @@ Panel {
   // bar icon, so a dropped response (e.g. waking before the network is back)
   // must retry rather than wait out the refresh timer with a stale icon.
   function scheduleDailyForecastRetry() {
-    if (dailyForecastRetries >= 3) {
-      if (Model.weatherResponseCompletesSave(root.hasConfiguredCoordinates, "open-meteo"))
-        root.finishSavingLocation()
-      return
-    }
+    if (dailyForecastRetries >= 3) return
     dailyForecastRetries++
     dailyForecastRetryTimer.restart()
   }
@@ -431,16 +439,10 @@ Panel {
 
   Process {
     id: geocodeProc
-    onRunningChanged: if (!running && root.editingLocation && root.geocodePendingQuery.length >= 2 && root.geocodePendingQuery !== root.geocodeActiveQuery) Qt.callLater(root.startGeocode)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        if (!root.editingLocation || root.geocodePendingQuery.length < 2) {
-          root.locationSuggestions = []
-          root.suggestionIndex = 0
-          return
-        }
-        root.locationSuggestions = Model.parseGeocodingResults(text)
+        root.locationSuggestions = root.editingLocation ? Model.parseGeocodingResults(text) : []
         root.suggestionIndex = 0
         if (root.geocodePendingQuery !== root.geocodeActiveQuery) Qt.callLater(root.startGeocode)
       }
@@ -456,11 +458,7 @@ Panel {
   Process {
     id: locationSaveProc
     onExited: function(exitCode) {
-      if (!root.savingLocation) return
-      if (exitCode !== 0) {
-        if (!root.savingLocationQueryStarted) root.cancelEditingLocation()
-        return
-      }
+      if (exitCode !== 0 || !root.savingLocation) return
 
       // FileView handles changed locations. Explicitly refresh here too so
       // saving the already-active location cannot strand the spinner.
@@ -480,7 +478,7 @@ Panel {
   // this network, in weather.json's shape.
   Process {
     id: locationProc
-    command: ["quattro-geolocate"]
+    command: ["curl", "-fsS", "--max-time", "4", "https://geo.omarchy.org/"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -498,6 +496,13 @@ Panel {
     }
   }
 
+  // Refetch the moment NetworkManager reports full internet connectivity, so a
+  // slow Wi-Fi join at boot or wake doesn't leave the bar empty until the next
+  // scheduled refresh. Restarting the timer fetches at once (triggeredOnStart)
+  // and counts the next scheduled refresh from there.
+  readonly property bool online: Networking.connectivity === NetworkConnectivity.Full
+  onOnlineChanged: if (online) refreshTimer.restart()
+
   Timer {
     id: refreshTimer
     interval: root.refreshMinutes * 60 * 1000
@@ -513,12 +518,12 @@ Panel {
   ShellIpc {
     target: root.ipcTarget
 
-    function open(): void { root.open() }
+    function open(): void { root.openFromHotkey() }
     function close(): void { root.close() }
-    function show(): void { root.open() }
+    function show(): void { root.openFromHotkey() }
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
-    function edit(): void { root.open(); root.startEditingLocation() }
+    function edit(): void { root.openFromHotkey(); root.startEditingLocation() }
   }
 
   KeyboardPanel {

@@ -1,0 +1,10 @@
+{
+  "name": "com.omarchy.copy_url",
+  "description": "Quattro Copy URL clipboard host",
+  "path": "__HOST_PATH__",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://bgpiichlckmfanooecilcjemknkcpngb/",
+    "chrome-extension://aakndbfnmnahdggmjaipjfobeemaelkm/"
+  ]
+}

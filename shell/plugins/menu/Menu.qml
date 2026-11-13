@@ -17,7 +17,7 @@ Item {
 
   // Plugin lifecycle hooks. The host calls open(payloadJson) after
   // `quattro-shell shell summon quattro.menu ...` and close() when hidden.
-  property string pendingInitialMenu: ""
+  property string pendingInitialMenu: "root"
 
   function open(payloadJson) {
     var payload = ({})
@@ -135,7 +135,7 @@ Item {
   property int dividerHeight: Style.space(17)
   property bool searchDivider: false
   property int layoutSerial: 0
-  property int cardWidth: Math.min(root.dmenuActive ? Style.space(root.dmenuWidth) : (root.activeMenu === "trigger.capture.screenrecord" ? Style.space(520) : Style.space(300)), panel.width - Style.gapsOut * 2)
+  property int cardWidth: Math.min(root.dmenuActive ? Style.space(root.dmenuWidth) : ((root.activeMenu === "trigger.capture.screenrecord" || root.activeMenu === "appearance.font" || root.activeMenu === "update.kernel") ? Style.space(520) : Style.space(300)), panel.width - Style.gapsOut * 2)
   property int visibleRowsHeight: root.dmenuActive ? dmenuRowListHeight(layoutSerial, displayModel.count, filterText) : rowListHeight(layoutSerial, displayModel.count, filterText, searchDivider)
   property int cardHeight: root.dmenuActive
     ? Math.min(contentMargin * 2 + headerHeight + (mode === "input" ? 0 : contentSpacing + visibleRowsHeight), panel.height - Style.gapsOut * 2)
@@ -249,6 +249,27 @@ Item {
     return root.items[id] || null
   }
 
+  // ------------------------------------------------------------------
+  // JSONC → normalized item array. Mirrors the bash bin's jq pipeline so
+  // the on-disk authoring format stays untouched.
+  // ------------------------------------------------------------------
+
+  function stripJsonc(raw) {
+    return MenuModel.stripJsonc(raw)
+  }
+
+  function normalizeAliases(value) {
+    return MenuModel.normalizeAliases(value)
+  }
+
+  function normalizeItem(id, raw) {
+    return MenuModel.normalizeItem(id, raw)
+  }
+
+  function parseMenuJsonc(raw) {
+    return MenuModel.parseMenuJsonc(raw)
+  }
+
   function parseCatalog(raw) {
     try {
       var parsed = JSON.parse(raw || "{}")
@@ -285,12 +306,6 @@ Item {
     root.itemOrder = mergedMenu.itemOrder
     root.rowsLoaded = true
     if (!skipGuards && root.defaultMenuSettled && root.userMenuSettled) root.evaluateGuards()
-    if (root.opened && !root.dmenuActive && root.pendingInitialMenu) {
-      var pending = root.pendingInitialMenu
-      root.pendingInitialMenu = ""
-      root.openRoute(pending)
-      return
-    }
     if (root.opened) {
       root.rebuildDisplay()
       if (!root.dmenuActive) {
@@ -303,13 +318,18 @@ Item {
   // Each known provider is a tiny bash one-liner that enumerates a list and
   // emits one tab-delimited row per item: `label\tvalue\tcurrent`. The shell
   // turns those into menu items children of `menuId`. A `volatile` provider
-  // re-runs every time its submenu is entered, so dynamic state shows up
-  // without restarting the shell.
+  // re-runs every time its submenu is entered, so a font installed since the
+  // shell started shows up without restarting it.
   readonly property var providers: ({
+    "fonts": {
+      script: "current=$(quattro-font-current 2>/dev/null); quattro-font-list 2>/dev/null | while read -r f; do [[ -z $f ]] && continue; printf '%s\\t%s\\t%s\\n' \"$f\" \"$f\" \"$current\"; done",
+      icon: "",
+      volatile: true,
+      actionFor: function(value) { return "quattro-font-set " + Util.shellQuote(value) }
+    },
     "power-profiles": {
       script: "current=$(powerprofilesctl get 2>/dev/null); quattro-powerprofiles-list 2>/dev/null | while read -r p; do [[ -z $p ]] && continue; printf '%s\\t%s\\t%s\\n' \"$p\" \"$p\" \"$current\"; done",
       icon: "\udb81\udc0b",
-      volatile: true,
       // Profile names are powerprofilesctl ids; only the label is translated,
       // and the id stays searchable through searchTerms.
       labelFor: function(value) {
@@ -320,14 +340,12 @@ Item {
       },
       actionFor: function(value) { return "quattro-powerprofiles-set autodetect " + Util.shellQuote(value) }
     },
-    // Rows are `what it does\tkeys\t\tkeys\tkeys`: the keys show as the row's
-    // secondary text and are searchable. The list is read-only; selecting a
-    // row only closes the menu.
-    "keybindings": {
-      script: "quattro-menu-keybindings --list",
-      icon: "\uf11c",
+    // Kernel names are package names, the same in every language.
+    "kernels": {
+      script: "current=$(quattro-kernel get 2>/dev/null); quattro-kernel list 2>/dev/null | while read -r k; do [[ -z $k ]] && continue; printf '%s\\t%s\\t%s\\n' \"$k\" \"$k\" \"$current\"; done",
+      icon: "\uf17c",
       volatile: true,
-      actionFor: function(value) { return ":" }
+      actionFor: function(value) { return "quattro-kernel set " + Util.shellQuote(value) }
     },
     // Rows carry a fourth field (the English name) so searching "danish"
     // finds the row labeled with its native name; mergeProviderRows turns
@@ -439,7 +457,7 @@ Item {
         label: label,
         title: "",
         target: "",
-        description: parts[4] || "",
+        description: "",
         action: spec.actionFor(value),
         provider: "",
         aliases: [],
@@ -508,6 +526,14 @@ Item {
     }
   }
 
+  function depthFor(id) {
+    return MenuModel.depthFor(root.items, id)
+  }
+
+  function pathFor(id) {
+    return MenuModel.pathFor(root.items, id)
+  }
+
   function parentPathFor(id) {
     return MenuModel.parentPathFor(root.items, id)
   }
@@ -516,11 +542,41 @@ Item {
     return MenuModel.isDescendantOf(root.items, id, ancestorId)
   }
 
+  function childCount(id) {
+    return MenuModel.childCount(root.items, root.itemOrder, id)
+  }
+
   // Guarded items are hidden when their `when:` evaluates false. Static
   // submenus are also hidden when none of their descendants are visible;
   // provider-backed menus stay visible because their rows load on demand.
   function isVisible(entry) {
     return MenuModel.isVisible(root.items, root.itemOrder, root.whenResults, entry)
+  }
+
+  // Label with the ✓ marker baked in when `checked:` or `disabled:` evaluated
+  // truthy.
+  function labelFor(entry) {
+    return MenuModel.labelFor(entry, root.checkedResults, root.disabledResults)
+  }
+
+  function searchableToken(value) {
+    return MenuModel.searchableToken(value)
+  }
+
+  function leafIdFor(id) {
+    return MenuModel.leafIdFor(id)
+  }
+
+  function nameSearchText(entry) {
+    return MenuModel.nameSearchText(entry)
+  }
+
+  function termInSearchWords(term, text) {
+    return MenuModel.termInSearchWords(term, text)
+  }
+
+  function descriptionTextMatches(query, text) {
+    return MenuModel.descriptionTextMatches(query, text)
   }
 
   // Rows whose `disabled:` evaluated truthy stay listed but dimmed, and the
@@ -890,7 +946,6 @@ Item {
 
   function cancel() {
     if (root.dmenuActive) root.finishRequest(null)
-    pendingInitialMenu = ""
     opened = false
     filterText = ""
   }
@@ -921,7 +976,6 @@ Item {
 
   function openDmenu(payload) {
     requestSerial += 1
-    pendingInitialMenu = ""
     mode = payload.mode === "input" ? "input" : "select"
     dmenuPrompt = String(payload.prompt || (mode === "input" ? Commons.I18n.t("menu.inputPrompt") : Commons.I18n.t("menu.selectPrompt")))
     dmenuOptions = Array.isArray(payload.options) ? payload.options : []
@@ -963,13 +1017,6 @@ Item {
   }
 
   function openRoute(initialMenu) {
-    if (!root.rowsLoaded) {
-      root.pendingInitialMenu = String(initialMenu || "root")
-      root.mode = "menu"
-      root.opened = true
-      return "ok"
-    }
-    root.pendingInitialMenu = ""
     var id = root.resolveRoute(initialMenu)
     var entry = root.items[id]
     // If the resolved id is an action (i.e. the user invoked an alias for
@@ -982,6 +1029,7 @@ Item {
     }
     // If it's a link (a redirect to another menu), follow the link.
     if (entry && entry.kind === "link" && entry.target) id = entry.target
+    root.pendingInitialMenu = id
     root.openExistingMenu(id)
     return "ok"
   }
@@ -1453,6 +1501,17 @@ Item {
               color: row.hasCursor ? root.selectedBackground : "transparent"
               borderSpec: row.hasCursor ? root.selectedBorderSpec : Border.none()
 
+              Rectangle {
+                visible: false
+                width: Style.space(4)
+                height: parent.height - Style.space(18)
+                radius: Math.min(root.cornerRadius, Style.space(4))
+                color: root.selectedBackground
+                anchors.left: parent.left
+                anchors.leftMargin: root.rowReservedBorderLeft + Style.space(8)
+                anchors.verticalCenter: parent.verticalCenter
+              }
+
               Text {
                 id: iconText
                 textFormat: Text.PlainText
@@ -1528,6 +1587,17 @@ Item {
                 anchors.rightMargin: root.rowReservedBorderRight + Style.space(8)
                 y: contentColumn.y + labelText.y + (labelText.height - height) / 2
                 spacing: 0
+
+                Text {
+                  textFormat: Text.PlainText
+                  visible: false
+                  text: row.childCount
+                  color: root.foreground
+                  opacity: 0.45
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.body
+                  anchors.verticalCenter: parent.verticalCenter
+                }
 
                 Text {
                   textFormat: Text.PlainText
@@ -1625,6 +1695,11 @@ Item {
               width: Style.space(320)
             }
           }
+        }
+
+        Item {
+          width: parent.width
+          height: 0
         }
       }
     }

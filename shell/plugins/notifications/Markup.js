@@ -56,10 +56,10 @@ function unescapeAllowed(text) {
   // Anchors keep only their href, and only when Security allows it: a click
   // goes straight to the desktop URL handler, and the sender writes the label.
   // A refused link keeps its text and loses its click.
-  out = out.replace(/&lt;a\s+href="((?:[^"&]|&amp;)+)"(?:[^&]|&amp;)*&gt;([\s\S]*?)&lt;\/a&gt;/gi,
+  out = out.replace(/&lt;a\s+href=(?:&quot;|")([^"&]+)(?:&quot;|")[^&]*&gt;([\s\S]*?)&lt;\/a&gt;/gi,
                     function (whole, href, label) {
-                      var safe = Security.safeExternalUrl(href.replace(/&amp;/g, "&"))
-                      return safe ? '<a href="' + safe.replace(/&/g, "&amp;") + '">' + label + '</a>' : label
+                      var safe = Security.safeExternalUrl(href)
+                      return safe ? '<a href="' + safe + '">' + label + '</a>' : label
                     })
   return out
 }
@@ -99,6 +99,16 @@ function render(body) {
   var out = unescapeAllowed(escapeAll(text)).replace(/<(\/?)em>/gi, "<$1i>")
   if (!/<a\b/i.test(out)) out = linkify(out)
   return out.replace(/\r?\n/g, "<br/>")
+}
+
+// One line of plain text. Strip only what render() treats as markup (<String>
+// and <3 stay literal), then undo our own escaping once without decoding the
+// sender's text again.
+function oneLine(body) {
+  var text = unescapeAllowed(escapeAll(decodeEntities(body)))
+  return decodeOnce(text.replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 // Only a browser's leading anchor names a site; any other app's is just a link.

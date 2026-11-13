@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# quattro:summary=Match the Dell XPS 13 DX13260 with an Intel Panther Lake GPU.
+
+quattro-hw-match "DX13260" && quattro-hw-intel-ptl

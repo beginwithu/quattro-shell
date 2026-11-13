@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# quattro:summary=Toggle notification do-not-disturb mode
+
+state=$(quattro-shell notifications toggleDnd 2>/dev/null || echo "")
+quattro-shell -q quattro.indicators refresh

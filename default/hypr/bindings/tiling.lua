@@ -1,42 +1,52 @@
 o.bind("SUPER + W", "Close window", hl.dsp.window.close())
 o.bind("SUPER + Q", "Close window", hl.dsp.window.close())
+o.bind("CTRL + ALT + DELETE", "Close all windows", "quattro-hyprland-window-close-all")
 
 o.bind("SUPER + J", "Toggle window split", hl.dsp.layout("togglesplit"))
 o.bind("SUPER + P", "Pseudo window", hl.dsp.window.pseudo())
 o.bind("SUPER + T", "Toggle window floating/tiling", hl.dsp.window.float({ action = "toggle" }))
 o.bind("SUPER + F", "Full screen", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
+o.bind("SUPER + CTRL + F", "Tiled full screen", "quattro-hyprland-window-tiled-fullscreen-toggle")
 o.bind("SUPER + ALT + F", "Full width", hl.dsp.window.fullscreen({ mode = "maximized" }))
+o.bind("SUPER + O", "Pop window out (float & pin)", "quattro-hyprland-window-pop")
+o.bind("SUPER + ALT + Home", "Save window width", "quattro-hyprland-window-width save")
+o.bind("SUPER + Home", "Restore window width", "quattro-hyprland-window-width restore")
+o.bind("SUPER + L", "Cycle workspace layout", "quattro-hyprland-workspace-layout-toggle")
+o.bind("SUPER + ALT + L", "Cycle workspace layout back", "quattro-hyprland-workspace-layout-toggle back")
+o.bind("XF86Display", "Cycle workspace layout", "quattro-hyprland-workspace-layout-toggle")
 
 o.bind("SUPER + LEFT", "Focus on left window", hl.dsp.focus({ direction = "l" }))
 o.bind("SUPER + RIGHT", "Focus on right window", hl.dsp.focus({ direction = "r" }))
 o.bind("SUPER + UP", "Focus on above window", hl.dsp.focus({ direction = "u" }))
 o.bind("SUPER + DOWN", "Focus on below window", hl.dsp.focus({ direction = "d" }))
 
+-- Each monitor has workspaces 1-10 of its own; see default/hypr/monitor-workspaces.lua.
 for workspace = 1, 10 do
   local key = "code:" .. tostring(workspace + 9)
-  o.bind("SUPER + " .. key, "Switch to workspace " .. workspace, hl.dsp.focus({ workspace = workspace }))
-  o.bind("SUPER + SHIFT + " .. key, "Move window to workspace " .. workspace, hl.dsp.window.move({ workspace = workspace }))
-  o.bind("SUPER + SHIFT + ALT + " .. key, "Move window silently to workspace " .. workspace, hl.dsp.window.move({ workspace = workspace, follow = false }))
+  o.bind("SUPER + " .. key, "Switch to workspace " .. workspace, o.workspaces.focus(workspace))
+  o.bind("SUPER + SHIFT + " .. key, "Move window to workspace " .. workspace, o.workspaces.move_window(workspace))
+  o.bind("SUPER + SHIFT + ALT + " .. key, "Move window silently to workspace " .. workspace, o.workspaces.move_window(workspace, false))
 end
 
 o.bind("SUPER + S", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratchpad"))
 o.bind("SUPER + ALT + S", "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
 o.bind("SUPER + grave", "Toggle Quake console", hl.dsp.workspace.toggle_special("qconsole"))
+o.bind("SUPER + M", "Minimize window to the dock", "quattro-hyprland-window-minimize")
 o.bind("SUPER + SHIFT + grave", "Move window to Quake console", hl.dsp.window.move({ workspace = "special:qconsole", follow = false }))
 
 o.bind("SUPER + TAB", "Next workspace", hl.dsp.focus({ workspace = "m+1" }))
 o.bind("SUPER + SHIFT + TAB", "Previous workspace", hl.dsp.focus({ workspace = "m-1" }))
 o.bind("SUPER + CTRL + TAB", "Former workspace", hl.dsp.focus({ workspace = "previous_per_monitor" }))
 
-o.bind("SUPER + SHIFT + ALT + LEFT", "Move workspace to left monitor", hl.dsp.workspace.move({ monitor = "l" }))
-o.bind("SUPER + SHIFT + ALT + RIGHT", "Move workspace to right monitor", hl.dsp.workspace.move({ monitor = "r" }))
-o.bind("SUPER + SHIFT + ALT + UP", "Move workspace to up monitor", hl.dsp.workspace.move({ monitor = "u" }))
-o.bind("SUPER + SHIFT + ALT + DOWN", "Move workspace to down monitor", hl.dsp.workspace.move({ monitor = "d" }))
+o.bind("SUPER + SHIFT + ALT + LEFT", "Move workspace to left monitor", o.workspaces.move_to_monitor("l"))
+o.bind("SUPER + SHIFT + ALT + RIGHT", "Move workspace to right monitor", o.workspaces.move_to_monitor("r"))
+o.bind("SUPER + SHIFT + ALT + UP", "Move workspace to up monitor", o.workspaces.move_to_monitor("u"))
+o.bind("SUPER + SHIFT + ALT + DOWN", "Move workspace to down monitor", o.workspaces.move_to_monitor("d"))
 
-o.bind("SUPER + SHIFT + CTRL + LEFT", "Move window to left monitor", hl.dsp.window.move({ monitor = "l" }))
-o.bind("SUPER + SHIFT + CTRL + RIGHT", "Move window to right monitor", hl.dsp.window.move({ monitor = "r" }))
-o.bind("SUPER + SHIFT + CTRL + UP", "Move window to up monitor", hl.dsp.window.move({ monitor = "u" }))
-o.bind("SUPER + SHIFT + CTRL + DOWN", "Move window to down monitor", hl.dsp.window.move({ monitor = "d" }))
+o.bind("SUPER + SHIFT + CTRL + LEFT", "Move window to left monitor", o.workspaces.move_window_to_monitor("l"))
+o.bind("SUPER + SHIFT + CTRL + RIGHT", "Move window to right monitor", o.workspaces.move_window_to_monitor("r"))
+o.bind("SUPER + SHIFT + CTRL + UP", "Move window to up monitor", o.workspaces.move_window_to_monitor("u"))
+o.bind("SUPER + SHIFT + CTRL + DOWN", "Move window to down monitor", o.workspaces.move_window_to_monitor("d"))
 
 o.bind("SUPER + SHIFT + LEFT", "Swap window to the left", hl.dsp.window.swap({ direction = "l" }))
 o.bind("SUPER + SHIFT + RIGHT", "Swap window to the right", hl.dsp.window.swap({ direction = "r" }))
@@ -94,3 +104,6 @@ o.bind("SUPER + ALT + mouse_up", "Previous window in group", hl.dsp.group.prev()
 for index = 1, 5 do
   o.bind("SUPER + ALT + code:" .. tostring(index + 9), "Switch to group window " .. index, hl.dsp.group.active({ index = index }))
 end
+
+o.bind("SUPER + SLASH", "Monitor scaling up", "quattro-hyprland-monitor-scaling up")
+o.bind("SUPER + ALT + SLASH", "Monitor scaling down", "quattro-hyprland-monitor-scaling down")

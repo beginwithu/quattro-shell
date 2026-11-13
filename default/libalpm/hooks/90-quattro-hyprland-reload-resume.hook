@@ -1,0 +1,12 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = quattro-settings
+Target = quattro-settings-dev
+
+[Action]
+Description = Reloading Hyprland after Quattro settings update...
+When = PostTransaction
+Depends = quattro
+Exec = /usr/bin/quattro-hyprland-reload-guard resume

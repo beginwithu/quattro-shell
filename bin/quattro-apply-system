@@ -1,0 +1,102 @@
+#!/bin/bash
+
+# quattro:summary=Apply Quattro system setup in the installed target
+# quattro:group=apply
+# quattro:requires-sudo=true
+# quattro:examples=quattro apply system --install-user dhh --first-install
+# quattro:hidden=true
+
+set -euo pipefail
+
+usage() {
+  cat <<USAGE
+Usage: quattro apply system --install-user USER [--first-install|--upgrade]
+       quattro apply system --defer-provisioning --first-install
+
+Runs root-owned Quattro system setup. The ISO calls this in the target chroot
+after packages are installed and the target user exists. It also calls
+quattro-apply-hardware, so hardware setup cannot be accidentally skipped.
+
+--defer-provisioning runs without an install user: deferred-provisioning installs create the user at
+first boot, so scripts that grant group memberships record them in
+/var/lib/quattro/provisioning/groups instead of calling usermod.
+USAGE
+}
+
+install_user="${QUATTRO_INSTALL_USER:-}"
+first_install=0
+upgrade=0
+defer_provisioning=0
+
+while (($#)); do
+  case "$1" in
+    --install-user)
+      install_user="${2:-}"
+      shift 2
+      ;;
+    --defer-provisioning)
+      defer_provisioning=1
+      shift
+      ;;
+    --first-install)
+      first_install=1
+      shift
+      ;;
+    --upgrade)
+      upgrade=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if (( EUID != 0 )); then
+  echo "Error: quattro-apply-system must run as root" >&2
+  exit 1
+fi
+
+if (( defer_provisioning )); then
+  install_user=""
+else
+  if [[ -z $install_user || $install_user == "root" ]]; then
+    echo "Error: --install-user must name the target non-root user" >&2
+    exit 1
+  fi
+
+  if ! getent passwd "$install_user" >/dev/null; then
+    echo "Error: user '$install_user' does not exist" >&2
+    exit 1
+  fi
+fi
+
+export QUATTRO_INSTALL_USER="$install_user"
+export QUATTRO_FIRST_INSTALL="$first_install"
+export QUATTRO_UPGRADE="$upgrade"
+export QUATTRO_PATH="${QUATTRO_PATH:-/usr/share/quattro}"
+export QUATTRO_INSTALL="${QUATTRO_INSTALL:-$QUATTRO_PATH/install}"
+export QUATTRO_INSTALL_LOG_FILE="${QUATTRO_INSTALL_LOG_FILE:-/var/log/quattro-install.log}"
+export PATH="$QUATTRO_PATH/bin:$PATH"
+
+source "$QUATTRO_INSTALL/helpers/logging.sh"
+start_install_log
+
+source "$QUATTRO_INSTALL/config/all.sh"
+
+if (( defer_provisioning )); then
+  quattro-apply-hardware --defer-provisioning
+else
+  quattro-apply-hardware --install-user "$install_user"
+fi
+
+source "$QUATTRO_INSTALL/login/all.sh"
+source "$QUATTRO_INSTALL/post-install/all.sh"
+
+stop_install_log

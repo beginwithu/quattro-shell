@@ -27,8 +27,11 @@ Item {
   property bool closing: false
   property bool submitted: false
   property string currentMessage: ""
+  property string currentPrompt: ""
+  property string currentSupplementary: ""
   property bool responseRequired: false
   property bool responseVisible: false
+  property bool failed: false
   property bool errorFlash: false
   // pam_fprintd appears in the polkit PAM stack (a sensor is enrolled).
   property bool fingerprintConfigured: false
@@ -43,7 +46,6 @@ Item {
   // a password — including immediately when the lid is shut and the clamshell
   // gate skips pam_fprintd — we switch to the password field instead.
   readonly property bool fingerprintMode: fingerprintConfigured && !laptopClosed && dialogVisible && !responseRequired && !submitted && !errorFlash
-  onFingerprintModeChanged: Qt.callLater(refocus)
   readonly property int cardHeight: panel.height > 0 ? Math.min(fieldHeight + contentMargin * 2, panel.height - Style.gapsOut * 2) : fieldHeight + contentMargin * 2
   // Password mode is a wide field; fingerprint mode collapses to a square that
   // just frames the centered sensor icon.
@@ -62,12 +64,12 @@ Item {
   }
 
   function resetSnapshot() {
-    errorTimer.stop()
-    shakeAnimation.stop()
-    shakeOffset = 0
     currentMessage = ""
+    currentPrompt = ""
+    currentSupplementary = ""
     responseRequired = false
     responseVisible = false
+    failed = false
     errorFlash = false
     submitted = false
     passwordInput.text = ""
@@ -78,19 +80,18 @@ Item {
     if (!flow) return
 
     currentMessage = String(flow.message || "")
+    currentPrompt = String(flow.inputPrompt || "")
+    currentSupplementary = String(flow.supplementaryMessage || "")
     responseRequired = !!flow.isResponseRequired
     responseVisible = !!flow.responseVisible
+    failed = !!flow.failed
 
     if (responseRequired) submitted = false
   }
 
   function beginFlow() {
     closeTimer.stop()
-    errorTimer.stop()
-    shakeAnimation.stop()
-    shakeOffset = 0
     closing = false
-    errorFlash = false
     submitted = false
     passwordInput.text = ""
     refreshLidState()
@@ -108,7 +109,7 @@ Item {
 
   function submitResponse() {
     var flow = polkitAgent.flow
-    if (!flow || !flow.isResponseRequired || submitted || errorFlash) return
+    if (!flow || !flow.isResponseRequired) return
     submitted = true
     errorFlash = false
     flow.submit(passwordInput.text)
@@ -168,8 +169,9 @@ Item {
 
   Process {
     id: laptopClosedProc
-    command: ["quattro-hw-laptop-closed"]
-    onExited: function(exitCode) { root.laptopClosed = exitCode === 0 }
+    command: ["bash", "-c", "quattro-hw-laptop-closed && echo closed || echo open"]
+    stdout: StdioCollector { id: laptopClosedOut; waitForEnd: true }
+    onExited: root.laptopClosed = String(laptopClosedOut.text || "").trim() === "closed"
   }
 
   PolkitAgent {
@@ -196,7 +198,10 @@ Item {
       Qt.callLater(root.refocus)
     }
 
+    function onInputPromptChanged() { root.syncFromFlow() }
     function onResponseVisibleChanged() { root.syncFromFlow() }
+    function onSupplementaryMessageChanged() { root.syncFromFlow() }
+    function onFailedChanged() { root.syncFromFlow() }
 
     function onAuthenticationFailed() {
       root.syncFromFlow()

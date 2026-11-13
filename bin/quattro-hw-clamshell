@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# quattro:summary=Returns true when clamshell mode is active
+# quattro:hidden=true
+
+# Clamshell = lid closed while driving one or more external monitors.
+quattro-hw-laptop-closed && quattro-hw-external-monitors

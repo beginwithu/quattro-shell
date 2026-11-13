@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# quattro:summary=Install the NordVPN service with optional GUI.
+# quattro:requires-sudo=true
+
+echo "Installing NordVPN..."
+quattro-pkg-add nordvpn-bin
+
+echo "Enabling NordVPN daemon..."
+sudo systemctl enable --now nordvpnd
+
+echo "Adding user to nordvpn group..."
+sudo usermod -aG nordvpn "$USER"
+
+echo -e "\nNordVPN installed! After reboot, run 'nordvpn login' to authenticate."
+
+echo
+gum confirm --affirmative "$(quattro-i18n common.yes)" --negative "$(quattro-i18n common.no)" "$(quattro-i18n nordvpn.rebootNow)" && quattro-system reboot

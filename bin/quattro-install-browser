@@ -1,0 +1,121 @@
+#!/bin/bash
+
+# quattro:summary=Install a supported browser
+# quattro:args=<chromium|chrome|brave|brave-origin|edge|firefox|zen>
+# quattro:examples=quattro install browser chromium | quattro install browser firefox
+
+set -e
+
+source "$QUATTRO_PATH/install/helpers/browser-policy.sh"
+
+opt_path="${QUATTRO_OPT_PATH:-/opt}"
+
+setup_chromium_policy_directory() {
+  browser_policy_setup_dir "$1"
+}
+
+announce_browser_installed() {
+  echo ""
+  echo "$1 browser installed. Make it the default via Setup > Defaults > Browser."
+}
+
+# The widevine package registers its CDM for Chromium and Firefox only; Brave
+# looks for one in its own install directory.
+link_widevine_cdm() {
+  local cdm="$opt_path/WidevineCdm/chromium"
+  local install_dir="$opt_path/$1"
+
+  if [[ -d $cdm && -d $install_dir && ! -e $install_dir/WidevineCdm ]]; then
+    as_root ln -sfn "$cdm" "$install_dir/WidevineCdm"
+  fi
+}
+
+copy_chromium_flags() {
+  mkdir -p ~/.config
+  cp -f "$QUATTRO_PATH/config/chromium-flags.conf" "$1"
+  quattro-install-chromium-copy-url
+  quattro-install-chromium-ytdlp
+  quattro-install-video-decode
+}
+
+setup_firefox_wayland() {
+  mkdir -p ~/.config/environment.d
+  echo "MOZ_ENABLE_WAYLAND=1" > ~/.config/environment.d/quattro-firefox-wayland.conf
+}
+
+case $1 in
+chromium)
+  echo "Installing Chromium..."
+  quattro-pkg-add chromium
+
+  setup_chromium_policy_directory /etc/chromium/policies/managed
+  copy_chromium_flags ~/.config/chromium-flags.conf
+  quattro-theme-set-browser
+  quattro-lifecycle-dispatch post-install chromium
+  announce_browser_installed "Chromium"
+  ;;
+chrome)
+  echo "Installing Chrome..."
+  quattro-pkg-add google-chrome
+
+  setup_chromium_policy_directory /etc/opt/chrome/policies/managed
+  copy_chromium_flags ~/.config/chrome-flags.conf
+  quattro-theme-set-browser
+  quattro-lifecycle-dispatch post-install chrome
+  announce_browser_installed "Chrome"
+  ;;
+edge)
+  echo "Installing Edge..."
+  quattro-pkg-aur-add microsoft-edge-stable-bin || exit 1
+
+  setup_chromium_policy_directory /etc/opt/edge/policies/managed
+  copy_chromium_flags ~/.config/microsoft-edge-stable-flags.conf
+  quattro-theme-set-browser
+  quattro-lifecycle-dispatch post-install edge
+  announce_browser_installed "Edge"
+  ;;
+brave)
+  echo "Installing Brave..."
+  quattro-pkg-aur-add brave-bin || exit 1
+
+  setup_chromium_policy_directory /etc/brave/policies/managed
+  copy_chromium_flags ~/.config/brave-flags.conf
+  link_widevine_cdm brave-bin
+  quattro-theme-set-browser
+  quattro-lifecycle-dispatch post-install brave
+  announce_browser_installed "Brave"
+  ;;
+brave-origin)
+  echo "Installing Brave Origin..."
+  quattro-pkg-aur-add brave-origin-bin || exit 1
+
+  setup_chromium_policy_directory /etc/brave/policies/managed
+  copy_chromium_flags ~/.config/brave-origin-flags.conf
+  link_widevine_cdm brave-origin-bin
+  quattro-theme-set-browser
+  quattro-lifecycle-dispatch post-install brave-origin
+  announce_browser_installed "Brave Origin"
+  ;;
+firefox)
+  echo "Installing Firefox..."
+  quattro-pkg-add firefox || exit 1
+
+  browser_policy_setup_firefox_distribution /usr/lib/firefox/distribution
+  setup_firefox_wayland
+  quattro-lifecycle-dispatch post-install firefox
+  announce_browser_installed "Firefox"
+  ;;
+zen)
+  echo "Installing Zen..."
+  quattro-pkg-aur-add zen-browser-bin || exit 1
+
+  browser_policy_setup_firefox_distribution /opt/zen-browser/distribution
+  setup_firefox_wayland
+  quattro-lifecycle-dispatch post-install zen
+  announce_browser_installed "Zen"
+  ;;
+*)
+  echo "Usage: quattro-install-browser <chromium|chrome|brave|brave-origin|edge|firefox|zen>"
+  exit 1
+  ;;
+esac

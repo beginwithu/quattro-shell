@@ -27,6 +27,26 @@
         "emptyText": "No indicators",
         "options": [
           {
+            "value": "PasswordlessSudo",
+            "label": "Passwordless sudo",
+            "description": "Warning while passwordless root access is enabled"
+          },
+          {
+            "value": "ScreenRecording",
+            "label": "Screen recording",
+            "description": "GPU screen recorder status"
+          },
+          {
+            "value": "RemoteSession",
+            "label": "Remote session",
+            "description": "Warning while someone is connected through gliff"
+          },
+          {
+            "value": "Reminder",
+            "label": "Reminder",
+            "description": "Queued reminder status"
+          },
+          {
             "value": "NightLight",
             "label": "Night light",
             "description": "Blue-light filter"

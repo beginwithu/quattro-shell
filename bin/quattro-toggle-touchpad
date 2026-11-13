@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# quattro:summary=Enable, disable, or toggle the touchpad
+# quattro:args=[on|off|toggle]
+
+exec quattro-toggle-input-device touchpad "${1:-toggle}"

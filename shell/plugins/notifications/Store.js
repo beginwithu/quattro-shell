@@ -66,7 +66,7 @@ function snapshot(n, key, urgencyEnum) {
 
 // The fields an in-place update (replaces_id) must write through to the row.
 var ROLES = ["originalId", "senderPid", "execArgv", "execActions", "glyph", "transient", "app", "appIcon", "summary", "body", "rawBody", "bodyRich",
-             "source", "groupKey", "image", "urgency",
+             "bodyLine", "source", "groupKey", "image", "urgency",
              "expireTimeout", "duration", "ts",
              "code", "codes", "link"]
 
@@ -78,6 +78,23 @@ function applyTo(model, index, row) {
   }
 }
 
+// The same message from the same sender under a new id. A web app open in
+// several tabs (HEY, Gmail, Calendar) fires one notification per tab for a
+// single reminder, all in the same moment: that is one card, not a stack of
+// identical ones. The click target counts, as every screenshot toast shares
+// its text but opens a different file. The image does not: Chromium hands each
+// copy its own temporary file. Past the window, the same words are a second
+// message ("ok", an hour later), not a copy.
+var DUPLICATE_ROLES = ["app", "source", "summary", "body", "execArgv", "execActions"]
+var DUPLICATE_WINDOW = 2
+
+function isDuplicate(row, shown) {
+  if (!row || !shown || Math.abs(row.ts - shown.ts) > DUPLICATE_WINDOW) return false
+  for (var i = 0; i < DUPLICATE_ROLES.length; i++)
+    if (row[DUPLICATE_ROLES[i]] !== shown[DUPLICATE_ROLES[i]]) return false
+  return true
+}
+
 // A restored row has no live sender, and its original timeout has long run
 // out. It gets a short grace instead; critical still waits for you.
 var RESTORE_GRACE = 20000
@@ -87,7 +104,7 @@ var RESTORE_GRACE = 20000
 // row goes through normalise() and carries every field.
 var SHAPE = {
   key: "", originalId: 0, senderPid: 0, execArgv: "", execActions: "", glyph: "", transient: false, app: "", appIcon: "", summary: "", body: "",
-  bodyRich: "", rawBody: "", source: "", groupKey: "", image: "",
+  bodyRich: "", bodyLine: "", rawBody: "", source: "", groupKey: "", image: "",
   code: "", codes: "", link: "",
   urgency: 1, expireTimeout: 0, duration: 0, ts: 0,
   restored: false
@@ -118,6 +135,7 @@ function normalise(row) {
   // Derived fields are recomputed, never trusted: a stored row from an older
   // build picks up today's rendering and grouping rules.
   out.bodyRich = Markup.render(out.body)
+  out.bodyLine = Markup.oneLine(out.body)
   out.groupKey = Markup.regroup(out)
   return out
 }
@@ -280,7 +298,7 @@ var REDACTED_SUMMARY = "Verification notification"
 var REDACTED_BODY = "[redacted]"
 
 function redacted(row) {
-  return !!row && row.summary === REDACTED_SUMMARY && row.body === REDACTED_BODY
+  return !!row && row.summary === REDACTED_SUMMARY && (row.body === REDACTED_BODY || row.bodyLine === REDACTED_BODY)
 }
 
 // A secret-bearing notification persists only as a placeholder, so encoded
@@ -298,6 +316,7 @@ function sanitiseForPersistence(row) {
     out.summary = REDACTED_SUMMARY
     out.body = REDACTED_BODY
     out.rawBody = out.body
+    out.bodyLine = out.body
     out.bodyRich = out.body
   }
   out.image = ""

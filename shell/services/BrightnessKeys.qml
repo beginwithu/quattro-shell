@@ -25,7 +25,8 @@ Item {
   // Returns false when the focused display is not one to handle here, so the
   // caller falls back to the script.
   function handle(action) {
-    var name = Compositor.focusedMonitorName
+    var monitor = Hyprland.focusedMonitor
+    var name = monitor ? String(monitor.name || "") : ""
     if (!/^(eDP|LVDS|DSI)-/.test(name) || !device) return false
     if (action !== "raise" && action !== "lower") return false
 
@@ -34,9 +35,8 @@ Item {
     if (setProc.running) return true
 
     var max = readNumber(maxFile)
-    var brightness = readNumber(brightnessFile)
-    if (!(max > 0) || !(brightness >= 0)) return false
-    var current = Math.round(100 * brightness / max)
+    if (!(max > 0)) return false
+    var current = Math.round(100 * readNumber(brightnessFile) / max)
 
     setProc.command = ["brightnessctl", "-q", "-d", device, "set", BrightnessModel.brightnessKeyTarget(action, current) + "%"]
     setProc.running = true
@@ -55,9 +55,8 @@ Item {
   // The payload quattro-osd builds, from the level read back after the write.
   function showOsd() {
     var max = readNumber(maxFile)
-    var brightness = readNumber(brightnessFile)
-    if (!host || !(max > 0) || !(brightness >= 0)) return
-    var percent = Math.round(100 * brightness / max)
+    if (!host || !(max > 0)) return
+    var percent = Math.round(100 * readNumber(brightnessFile) / max)
     host.summon("quattro.osd", JSON.stringify({
       icon: "brightness",
       message: "",
@@ -84,8 +83,8 @@ Item {
 
   Process {
     id: setProc
-    onExited: function(exitCode) {
-      if (exitCode === 0) root.showOsd()
+    onExited: {
+      root.showOsd()
       if (!deviceProc.running) deviceProc.running = true
     }
   }

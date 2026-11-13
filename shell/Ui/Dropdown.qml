@@ -55,7 +55,7 @@ Item {
     return (o && typeof o === "object") ? String(o.value) : String(o)
   }
   function optionLabel(o) {
-    return (o && typeof o === "object") ? String(o.label !== undefined ? o.label : o.value) : String(o)
+    return (o && typeof o === "object") ? String(o.label) : String(o)
   }
   function currentLabel() {
     for (var i = 0; i < options.length; i++) {

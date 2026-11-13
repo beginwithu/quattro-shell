@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "id": "quattro.dock",
-  "name": "App Launcher",
+  "name": "Dock",
   "version": "1.0.0",
   "author": "Quattro",
-  "description": "Searchable grid of installed applications",
+  "description": "App dock shown on floating workspaces",
   "kinds": [
     "service"
   ],

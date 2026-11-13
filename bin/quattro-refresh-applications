@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# quattro:summary=Ensure default application launchers are installed.
+
+# Copy .desktop declarations
+mkdir -p ~/.local/share/applications
+cp "$QUATTRO_PATH"/applications/*.desktop ~/.local/share/applications/
+
+if quattro-cmd-present alacritty; then
+  cp "$QUATTRO_PATH/default/alacritty/Alacritty.desktop" ~/.local/share/applications/
+fi
+
+update-desktop-database ~/.local/share/applications

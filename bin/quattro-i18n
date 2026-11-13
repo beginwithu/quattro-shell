@@ -4,8 +4,6 @@
 # quattro:args=[--count <n>] <key> [args...] | --number <value>
 # quattro:hidden=true
 
-QUATTRO_PATH=${QUATTRO_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}
-export QUATTRO_PATH
 set -euo pipefail
 
 # Looks up <key> in default/i18n/<language>/cli.json, falling back to the

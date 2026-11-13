@@ -1,18 +1,26 @@
 #!/bin/bash
 
-# quattro:summary=Read the text in a screen region (OCR) and copy it to the clipboard
+# quattro:summary=Extract text from a screenshot region with OCR
+# quattro:group=capture
+# quattro:examples=quattro capture text
 
-for tool in grim slurp tesseract wl-copy; do
-  command -v "$tool" >/dev/null 2>&1 || { echo "quattro-capture-text: $tool is required" >&2; exit 1; }
-done
+# Keep hyprpicker alive until after grim captures so the screenshot sees the
+# frozen overlay rather than live content shifting during teardown.
+cleanup_freeze() {
+  [[ -n $PID ]] && kill $PID 2>/dev/null
+}
+trap cleanup_freeze EXIT
 
-region=$(slurp) || exit 0
-text=$(grim -g "$region" - | tesseract stdin stdout 2>/dev/null) || exit 1
+hyprpicker -r -z >/dev/null 2>&1 &
+PID=$!
+sleep .1
+SELECTION=$(slurp 2>/dev/null)
 
-if [[ -z ${text//[[:space:]]/} ]]; then
-  quattro-notification-send -g 󰴑 "No text found" >/dev/null 2>&1 || true
-  exit 1
-fi
+[[ -z $SELECTION ]] && exit 0
 
-printf '%s' "$text" | wl-copy
-quattro-notification-send -g 󰴑 "Text copied" "${text:0:120}" >/dev/null 2>&1 || true
+TEXT=$(grim -g "$SELECTION" - | tesseract stdin stdout --oem 1 --psm 6 -l "${QUATTRO_OCR_LANGS:-eng}" --dpi 300 -c preserve_interword_spaces=1 2>/dev/null) || exit 1
+
+[[ -z $TEXT ]] && exit 1
+
+printf "%s" "$TEXT" | wl-copy
+quattro-notification-send -g 󰴑 "$(quattro-i18n capture.textCopied)"

@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# quattro:summary=Print the installed Quattro version
+
+quattro_path=${QUATTRO_PATH:-$HOME/.local/share/quattro}
+quattro_path=${quattro_path%/}
+
+if [[ -f $quattro_path/version ]]; then
+  version_file=$(<"$quattro_path/version")
+else
+  version_file=""
+fi
+
+if [[ $quattro_path != "/usr/share/quattro" ]]; then
+  hash=$(git -C "$quattro_path" rev-parse --short HEAD 2>/dev/null || true)
+
+  if [[ -n $version_file && -n $hash ]]; then
+    echo "$version_file ($hash)"
+  elif [[ -n $version_file ]]; then
+    echo "$version_file"
+  elif [[ -n $hash ]]; then
+    echo "arch ($hash)"
+  else
+    echo "arch"
+  fi
+
+  exit 0
+fi
+
+# The edge channel installs quattro-dev instead of quattro, so check both.
+for package in quattro-dev quattro; do
+  version=$(pacman -Q "$package" 2>/dev/null | awk '{ print $2 }')
+  [[ -n $version ]] && break
+done
+
+[[ -n $version ]] || exit 1
+
+echo "$version"

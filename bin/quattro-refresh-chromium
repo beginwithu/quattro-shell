@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# quattro:summary=Refresh the ~/.config/chromium-flags.conf file from the Quattro defaults.
+
+# Refresh the Chromium configuration
+quattro-refresh-config chromium-flags.conf
+
+# Install/refresh the native messaging hosts used by the bundled extensions
+quattro-install-chromium-copy-url
+quattro-install-chromium-ytdlp
+
+# Put the Snapdragon video decoding settings back. Last, so a failure here is
+# the command's result.
+quattro-install-video-decode

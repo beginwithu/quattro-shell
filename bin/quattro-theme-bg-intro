@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# quattro:summary=Enable or disable background intros
+# quattro:args=<enable|disable|toggle|status>
+# quattro:examples=quattro theme bg intro toggle | quattro theme bg intro disable
+
+set -euo pipefail
+
+toggle="$HOME/.local/state/quattro/toggles/background-intros-off"
+case ${1:-} in
+  enable)
+    rm -f "$toggle"
+    quattro-notification-send "$(quattro-i18n theme.backgroundIntros)" "$(quattro-i18n common.enabled)"
+    ;;
+  disable)
+    mkdir -p "$(dirname "$toggle")"
+    touch "$toggle"
+    quattro-notification-send "$(quattro-i18n theme.backgroundIntros)" "$(quattro-i18n common.disabled)"
+    ;;
+  toggle)
+    if [[ -f $toggle ]]; then
+      quattro-theme-bg-intro enable
+    else
+      quattro-theme-bg-intro disable
+    fi
+    ;;
+  status)
+    [[ ! -f $toggle ]]
+    ;;
+  *)
+    echo "Usage: quattro-theme-bg-intro <enable|disable|toggle|status>" >&2
+    exit 1
+    ;;
+esac

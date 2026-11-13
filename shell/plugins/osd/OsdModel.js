@@ -38,8 +38,7 @@ function iconFor(name, percent) {
 // I18n.formatNumber, and without it the digits stay as they are.
 function stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration, fmt) {
   var number = typeof fmt === "function" ? fmt : function(v) { return String(v) }
-  var parsedMax = parseInt(rawMax || "100", 10)
-  var maxValue = isNaN(parsedMax) ? 100 : Math.max(1, parsedMax)
+  var maxValue = Math.max(1, parseInt(rawMax || "100", 10))
   var parsedValue = parseInt(rawValue || "0", 10)
   var hasProgress = rawValue !== "" && !isNaN(parsedValue) && rawMessage === ""
   var value = hasProgress ? clamp(parsedValue, 0, maxValue) : 0

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# quattro:summary=Cache background switcher thumbnails for the current theme
+
+theme_name=$(cat "$HOME/.local/state/quattro/current/theme.name" 2>/dev/null)
+
+quattro-menu-images \
+  --cache-only \
+  "$HOME/.local/state/quattro/current/theme/backgrounds" \
+  "$HOME/.config/quattro/backgrounds/$theme_name"

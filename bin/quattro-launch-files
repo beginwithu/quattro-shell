@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# quattro:summary=Launch Files
+
+for fm in folio nautilus dolphin thunar pcmanfm nemo; do
+  if command -v "$fm" >/dev/null 2>&1; then
+    exec setsid uwsm-app -- "$fm" "$@"
+  fi
+done
+
+exec setsid uwsm-app -- xdg-open "${1:-$HOME}"

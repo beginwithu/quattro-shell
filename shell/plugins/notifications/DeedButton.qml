@@ -64,8 +64,8 @@ Item {
       id: label
       // Cut short only when it cannot fit: measured apart from the label, as
       // an elided label's own width can come out a hair short of the text.
-      readonly property real room: Math.max(0, button.width - Style.space(8)
-                                   - (hintText.visible ? hintText.implicitWidth + content.spacing : 0))
+      readonly property real room: button.width - Style.space(8)
+                                   - (hintText.visible ? hintText.implicitWidth + content.spacing : 0)
       readonly property bool tooLong: labelMetrics.advanceWidth > room
       // Never its own implicit width, which would bind the width to itself.
       width: tooLong ? room : Math.ceil(labelMetrics.advanceWidth)
@@ -83,6 +83,6 @@ Item {
   MouseArea {
     anchors.fill: parent
     cursorShape: Qt.PointingHandCursor
-    onClicked: if (button.toast) button.toast.doDeed(button.deed)
+    onClicked: button.toast.doDeed(button.deed)
   }
 }

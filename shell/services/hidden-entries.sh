@@ -67,7 +67,7 @@ is_hidden_desktop_file() {
 }
 
 scan_dir() {
-  local dir=${1%/}
+  local dir=$1
   local file id
 
   [[ -d $dir ]] || return
@@ -82,14 +82,14 @@ scan_dir() {
     if is_hidden_desktop_file "$file"; then
       printf '%s\n' "$id"
     fi
-  done < <(find "$dir" \( -type f -o -type l \) -name '*.desktop' -print0 2>/dev/null | sort -z)
+  done < <(find "$dir" -type f -name '*.desktop' -print0 2>/dev/null | sort -z)
 }
 
-scan_dir "${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+scan_dir "$HOME/.local/share/applications"
 
 IFS=":" read -ra data_dirs <<< "${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 for data_dir in "${data_dirs[@]}"; do
-  [[ -n $data_dir ]] && scan_dir "${data_dir%/}/applications"
+  scan_dir "$data_dir/applications"
 done
 
 scan_dir "$HOME/.nix-profile/share/applications"

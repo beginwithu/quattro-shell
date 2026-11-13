@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# quattro:summary=Reinstall all default Quattro packages from the stable channel, or on Apple Silicon the edge channel
+# quattro:requires-sudo=true
+
+set -e
+
+# Reinstall all default Quattro packages from the platform's default channel
+# (stable, or edge on Apple Silicon) and downgrade any packages that are too new.
+
+# Set the package repository to the platform's default channel
+source "$QUATTRO_PATH/install/helpers/pacman.sh"
+platform=$(quattro-hw-platform)
+channel=$(quattro_pacman_default_channel "$platform")
+quattro-refresh-pacman "$channel"
+
+# Downgrade any packages to that channel's setup
+quattro-update-pacman -Suu --noconfirm
+
+# Ensure this platform's default packages are installed
+default_packages=$(quattro-pkg-defaults)
+# pipewire-jack conflicts with jack and jack2, and --ask 4 below would remove
+# them for it, so a machine that kept either keeps it.
+if quattro-pkg-present jack2 || quattro-pkg-present jack; then
+  default_packages=$(grep -vx pipewire-jack <<<"$default_packages")
+fi
+mapfile -t packages <<<"$default_packages"
+# --ask 4 accepts removing a stock package a default replaces, such as
+# power-profiles-daemon for quattro-power-profiles-daemon.
+quattro-update-pacman -Syu --noconfirm --ask 4 --needed "${packages[@]}"

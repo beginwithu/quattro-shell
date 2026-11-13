@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# quattro:summary=Open the quattro-shell dev gallery (qs.Ui kit preview)
+# quattro:args=[section]
+# quattro:examples=quattro dev ui-preview | quattro dev ui-preview button | quattro dev ui-preview button-group | quattro dev ui-preview slider
+#
+# Pass a section name to jump straight to that component instead of
+# scrolling from the top. Section names match the cursor section ids in
+# shell/plugins/dev-gallery/GalleryPanel.qml — `button`, `button-group`,
+# `cursor-surface`, `slider`, `toggle`, `dropdown`, etc. Unknown names
+# are ignored and the gallery opens at its normal default position.
+
+if (( $# > 0 )) && [[ -n $1 ]]; then
+  section="$1"
+  payload=$(printf '{"section":"%s"}' "${section//\"/}")
+else
+  payload='{}'
+fi
+
+quattro-shell shell summon quattro.dev-gallery "$payload"

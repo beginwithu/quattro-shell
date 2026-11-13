@@ -51,7 +51,7 @@ band_for_freq() {
 # under a non-English session; `-e no` because `-g` otherwise escapes ':' and
 # '\' in values, and an escaped SSID would never match iw's raw one.
 nm_get() {
-  LC_ALL=C nmcli -e no -g "$@" 2>/dev/null || true
+  LC_ALL=C nmcli -e no -g "$@" 2>/dev/null
 }
 
 wifi_device() {
@@ -71,7 +71,7 @@ selected_band() {
 # the rest of its line, so an SSID containing ':' needs no special handling.
 read_link() {
   local link
-  link=$(iw dev "$1" link 2>/dev/null) || true
+  link=$(iw dev "$1" link 2>/dev/null)
   ssid=$(awk '/SSID:/ { sub(/.*SSID: /, ""); print; exit }' <<<"$link")
   freq=$(awk '/freq:/ { print $2; exit }' <<<"$link")
 }
@@ -103,7 +103,7 @@ available_bands() {
           if (name == want) print $1
         }' |
       while read -r freq; do band_for_freq "$freq" || true; done
-  } | sort -u -g | paste -sd' '
+  } | sort -u -g | tr '\n' ' ' | sed 's/ $//'
 }
 
 print_status() {

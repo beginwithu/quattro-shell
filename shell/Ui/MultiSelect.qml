@@ -185,11 +185,6 @@ Item {
   function refresh() {
     var cmd = arrayFrom(optionsCommand)
     if (cmd.length === 0) {
-      refreshSeq++
-      optionsProcess.running = false
-      refreshTimeoutTimer.stop()
-      loadingOptions = false
-      optionsError = ""
       rebuildFromStatic()
       return
     }
@@ -231,9 +226,7 @@ Item {
       onStreamFinished: {
         if (optionsProcess.seq !== root.refreshSeq) return
         var result = root.parseCommandOutput(text)
-        if (root.optionsError !== "") {
-          root.resolvedOptions = root.normalizeAll(root.options)
-        } else if (result.error) {
+        if (result.error) {
           root.optionsError = result.error
           root.resolvedOptions = root.normalizeAll(root.options)
         } else {
@@ -255,8 +248,6 @@ Item {
       if (exitCode !== 0) {
         root.loadingOptions = false
         root.optionsError = Commons.I18n.t("multiSelect.exited").arg(Commons.I18n.formatNumber(exitCode))
-        root.resolvedOptions = root.normalizeAll(root.options)
-        root.recomputeFiltered()
       }
     }
   }
@@ -405,7 +396,6 @@ Item {
         onOpened: {
           reposition()
           searchField.text = ""
-          resultList.currentIndex = -1
           root.refresh()
           root.recomputeFiltered()
           Qt.callLater(function() { searchField.forceActiveFocus() })
@@ -427,7 +417,7 @@ Item {
 
               TextField {
                 id: searchField
-                width: parent.width - (refreshButton.visible ? refreshButton.width + parent.spacing : 0)
+                width: parent.width - refreshButton.width - parent.spacing
                 height: parent.height
                 placeholderText: root.placeholderText
                 foreground: root.foreground

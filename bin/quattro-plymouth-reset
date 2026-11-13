@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# quattro:summary=Restore the default Quattro Plymouth boot theme and SDDM login screen
+# quattro:requires-sudo=true
+
+set -euo pipefail
+
+"$QUATTRO_PATH/bin/quattro-refresh-plymouth"
+"$QUATTRO_PATH/bin/quattro-refresh-sddm"

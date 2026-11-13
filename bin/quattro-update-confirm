@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# quattro:summary=Prompt for confirmation before starting an update
+
+gum style --border normal --padding "1 2" \
+  "$(quattro-i18n update.ready)" \
+  "" \
+  "• $(quattro-i18n update.cannotStop)" \
+  "• $(quattro-i18n update.connectPower)" \
+  "" \
+  "$(quattro-i18n update.whatsNew "https://github.com/omacom/omarchy/releases/latest")"
+
+echo
+
+if ! gum confirm --affirmative "$(quattro-i18n common.yes)" --negative "$(quattro-i18n common.no)" "$(quattro-i18n update.continue)"; then
+  echo "Update cancelled"
+  exit 1
+fi

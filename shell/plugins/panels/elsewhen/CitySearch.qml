@@ -62,9 +62,8 @@ Column {
 
   function start() {
     selectedIndex = 0
-    field.text = ""
     active = true
-    Qt.callLater(function() { if (search.active) field.forceActiveFocus() })
+    Qt.callLater(function() { field.text = ""; field.forceActiveFocus() })
   }
 
   // The hidden field would keep the keyboard, so the host takes it back on dismissed.

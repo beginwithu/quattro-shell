@@ -3,8 +3,6 @@
 # quattro:summary=Shared helpers for editing ~/.config/quattro/shell.json (source this, don't run it).
 # quattro:hidden=true
 
-QUATTRO_PATH=${QUATTRO_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}
-export QUATTRO_PATH
 CONFIG_FILE="$HOME/.config/quattro/shell.json"
 DEFAULTS_FILE="$QUATTRO_PATH/config/quattro/shell.json"
 

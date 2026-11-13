@@ -10,6 +10,20 @@ end
 
 o.shell_quote = shell_quote
 
+-- Chromium-based browsers. Rule classes match the whole name, so their web apps
+-- (chrome-<host>_<path>-<profile>) aren't included.
+o.chromium_browsers = "((google-)?[cC]hrom(e|ium)|[bB]rave-browser|[mM]icrosoft-edge|Vivaldi-stable|helium)"
+
+-- Apps that draw their own header with a close button: those browsers and GNOME
+-- apps with a header bar. Floating workspaces give them no titlebar. Web apps
+-- keep theirs, having no tab strip to drag the window by.
+--
+-- Their maximize button stays off (GNOME's default button layout) and their
+-- maximize requests stay suppressed: Hyprland reports every app as maximized and
+-- takes any maximize request as a toggle, so Chrome's request to return to
+-- "maximized" after leaving fullscreen would maximize a normal window.
+o.self_framed_apps = "(" .. o.chromium_browsers .. "|org\\.gnome\\.(DiskUtility|Papers))"
+
 local function file_exists(path)
   local file = io.open(path, "r")
   if file then
@@ -117,10 +131,22 @@ local function command_from(value, description)
       return o.launch_webapp(value.webapp)
     end
   elseif value.tui then
-    return "quattro-launch-tui " .. shell_quote(value.tui)
+    if value.focus then
+      return "quattro-launch-or-focus-tui " .. shell_quote(value.tui)
+    else
+      return "quattro-launch-tui " .. shell_quote(value.tui)
+    end
   end
 
   return value
+end
+
+function o.preinstalled_bindings_enabled()
+  if _G.quattro_preinstalled_bindings ~= nil then
+    return _G.quattro_preinstalled_bindings == true
+  end
+
+  return not file_exists((os.getenv("HOME") or "") .. "/.local/state/quattro/preinstalls-removed")
 end
 
 function o.bind(keys, description, dispatcher, options)
@@ -145,7 +171,7 @@ function o.rebind(keys, description, dispatcher, options)
 end
 
 function o.launch(command)
-  return command
+  return "uwsm-app -- " .. command
 end
 
 -- The command each function bind stands for, so the keybindings menu can still
@@ -156,14 +182,19 @@ o.bind_commands = {}
 -- to run instead. The menu dispatches it as `hyprctl dispatch <expression>`.
 o.bind_expressions = {}
 
-local terminal_command = 'quattro-terminal "${SHELL:-/bin/sh}"'
-
+-- Hand the launcher the focused window's pid, which it would otherwise ask
+-- Hyprland for, to open the new terminal in that terminal's directory.
 function o.launch_terminal()
   local function launch()
-    hl.exec_cmd(terminal_command)
+    local window = hl.get_active_window()
+    if window and window.pid then
+      hl.exec_cmd("quattro-launch-terminal --pid=" .. window.pid)
+    else
+      hl.exec_cmd("quattro-launch-terminal")
+    end
   end
 
-  o.bind_commands[launch] = terminal_command
+  o.bind_commands[launch] = "quattro-launch-terminal"
   return launch
 end
 
@@ -182,21 +213,15 @@ function o.launch_webapp(url)
 end
 
 function o.launch_webapp_sole(name, url)
-  return o.launch_webapp(url)
+  return "quattro-launch-or-focus-webapp " .. shell_quote(name) .. " " .. shell_quote(url)
 end
 
 function o.launch_sole(match, command)
-  return o.launch(command)
+  return "quattro-launch-or-focus " .. shell_quote(match) .. " " .. shell_quote(o.launch(command))
 end
 
-local toggle_commands = {
-  bar = "quattro-toggle-bar",
-  idle = "quattro-shell idle toggle",
-  ["notification-silencing"] = "quattro-shell notifications toggleDnd",
-}
-
 function o.bind_toggle(keys, description, toggle, options)
-  o.bind(keys, description, toggle_commands[toggle] or ("quattro-toggle-" .. toggle), options)
+  o.bind(keys, description, "quattro-toggle-" .. toggle, options)
 end
 
 -- Bind one action to a key's press and another to its release, as for
@@ -258,6 +283,21 @@ end
 
 function o.notify(message)
   return "quattro-notification-send -u low " .. shell_quote(message)
+end
+
+-- Whether this session gets default/hypr/software-rendering.lua's lighter look:
+-- it renders on the CPU (llvmpipe or softpipe), as
+-- quattro-hyprland-software-rendering marks it once Hyprland is up, and the user
+-- hasn't turned animations back on there with quattro-toggle-animations.
+function o.software_rendering_defaults()
+  local runtime = os.getenv("XDG_RUNTIME_DIR")
+  local signature = os.getenv("HYPRLAND_INSTANCE_SIGNATURE")
+  if not runtime or runtime == "" or not signature or signature == "" then
+    return false
+  end
+
+  return file_exists(runtime .. "/hypr/" .. signature .. "/quattro-software-rendering")
+    and not file_exists(paths.home .. "/.local/state/quattro/toggles/animations-without-gpu")
 end
 
 -- What makes apps float on their own account, so a floating workspace can

@@ -1,281 +1,331 @@
 #!/bin/bash
 
-# Quattro shell installer for Hyprland (Arch Linux and derivatives). Works from the folder it sits in;
-# nothing is copied elsewhere except small symlinks and per-user config.
-#
-#   ./install.sh                 install missing dependencies, link commands, set up config and a theme
-#   ./install.sh --lock          also install the PAM service the lock screen needs (sudo)
-#   ./install.sh --sleep-lock    also lock the screen before suspend (user unit + logind drop-in, sudo)
-#   ./install.sh --check         only report missing dependencies
-#   --no-deps                    do not install dependencies, only check them
-#   -y, --yes                    install dependencies without asking first
-#   ./install.sh --uninstall     remove the symlinks and units (your ~/.config/quattro stays)
-#   --theme NAME                 start theme (default: tokyo-night)
-#   --bin-dir DIR                where to link commands (default: /usr/local/bin, via sudo)
-
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
-BIN_DIR=/usr/local/bin
-LEGACY_BIN_DIR="$HOME/.local/bin"   # where earlier versions linked the commands
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/quattro"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/quattro"
-THEME=tokyo-night
-DO_LOCK=0 DO_SLEEP=0 CHECK_ONLY=0 UNINSTALL=0 NO_DEPS=0 ASSUME_YES=0
+PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
-# The commands people type or bind to keys. The rest are found through PATH by
-# quattro-launch-shell, so they do not need to be on yours.
-LINKED=(quattro-shell quattro-menu quattro-launch-shell quattro-restart-shell quattro-bar
-  quattro-theme-set quattro-language quattro-audio-output-volume quattro-brightness-display
-  quattro-brightness-keyboard quattro-toggle-nightlight quattro-capture-screenshot
-  quattro-capture-screenrecording quattro-capture-text quattro-capture-qr
-  quattro-apply-lock quattro-system-lock quattro-system quattro-compositor quattro-osd
-  quattro-notification-send quattro-weather-location)
+MODE="user"
+WITH_PACKAGES=false
+WITH_OPTIONAL=false
+WITH_AUR=false
+DRY_RUN=false
+THEME="Tokyo Night"
+PREFIX=""
 
-while (( $# )); do
-  case $1 in
-    --lock) DO_LOCK=1 ;;
-    --sleep-lock) DO_SLEEP=1 ;;
-    --check) CHECK_ONLY=1 ;;
-    --no-deps) NO_DEPS=1 ;;
-    -y|--yes) ASSUME_YES=1 ;;
-    --uninstall) UNINSTALL=1 ;;
-    --theme) THEME=${2:?--theme needs a name}; shift ;;
-    --bin-dir) BIN_DIR=${2:?--bin-dir needs a path}; shift ;;
-    -h|--help) sed -n '3,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "Unknown option: $1" >&2; exit 1 ;;
+usage() {
+  cat <<'EOF'
+Usage: ./install.sh [options]
+
+Deploy the pure Arch Linux port of Quattro configs and runtime.
+
+Modes:
+  --user-only         Install runtime, bins, themes, and configs into $HOME only (default, no sudo)
+  --system            Also install system integration (/etc/profile.d, uwsm, wayland-sessions, xkb, etc.)
+
+Packages:
+  --with-packages     Install required Arch [core]/[extra] packages via pacman
+  --with-optional     Also install optional Arch [core]/[extra] desktop/dev packages (implies --with-packages)
+  --with-aur          Also install optional AUR packages via yay (qtengine, google-chrome, etc.)
+
+Options:
+  --theme <name>      Initial theme to generate (default: "Tokyo Night")
+  --prefix <dir>      Override Quattro runtime install directory (default: ~/.local/share/quattro)
+  --dry-run           Print planned operations without making changes
+  -h, --help          Show this help
+EOF
+}
+
+while (( $# > 0 )); do
+  case "$1" in
+    --user-only) MODE="user"; shift ;;
+    --system) MODE="system"; shift ;;
+    --with-packages) WITH_PACKAGES=true; shift ;;
+    --with-optional) WITH_PACKAGES=true; WITH_OPTIONAL=true; shift ;;
+    --with-aur) WITH_AUR=true; shift ;;
+    --theme)
+      THEME="${2:-}"
+      [[ -n $THEME ]] || { echo "Error: --theme requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    --prefix)
+      PREFIX="${2:-}"
+      [[ -n $PREFIX ]] || { echo "Error: --prefix requires a value" >&2; exit 1; }
+      shift 2
+      ;;
+    --dry-run) DRY_RUN=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
-  shift
 done
 
-# Config and theme belong to the calling user, so root would set up the wrong home.
-if (( EUID == 0 && !CHECK_ONLY )); then
-  echo "Run this as your normal user, not root; it calls sudo only where it needs to." >&2
-  exit 1
-fi
+INSTALL_DIR="${PREFIX:-$HOME/.local/share/quattro}"
+BACKUP_DIR="$HOME/.local/state/quattro-arch/backups/$(date +%Y%m%d-%H%M%S)"
+BIN_LINK_DIR="$HOME/.local/bin"
 
-say() { printf '%s\n' "$*"; }
-
-have() { command -v "$1" >/dev/null 2>&1; }
-
-# Run a command that changes directory $1, through sudo unless we can write there.
-privileged() {
-  local dir=$1; shift
-  if [[ -w $dir ]]; then "$@"; else sudo "$@"; fi
-}
-
-# Remove the links in $1 that point into this checkout's bin/, in one call.
-remove_links() {
-  local dir=$1 c old=()
-  for c in "${LINKED[@]}"; do
-    if [[ -L $dir/$c && $(readlink -f "$dir/$c") == "$ROOT/bin/"* ]]; then old+=("$dir/$c"); fi
-  done
-  if (( ${#old[@]} )); then
-    privileged "$dir" rm -f -- "${old[@]}"
-    say "Removed ${#old[@]} link(s) from $dir"
+run() {
+  if $DRY_RUN; then
+    printf '[dry-run]'
+    printf ' %q' "$@"
+    printf '\n'
+  else
+    "$@"
   fi
 }
 
-# tier|command|used for|package
-# req and rec are installed automatically, opt is only reported. Every package
-# is in the official Arch repositories, so no AUR helper is needed.
-DEPS=(
-  "req|hyprctl|the Hyprland compositor|hyprland"
-  "req|quickshell|the shell itself|quickshell"
-  "req|jq|JSON handling|jq"
-  "req|curl|weather and geolocation|curl"
-  "rec|hyprsunset|night light|hyprsunset"
-  "rec|wpctl|audio panel and volume keys|wireplumber"
-  "rec|pactl|audio device switching|libpulse"
-  "rec|nmcli|network panel|networkmanager"
-  "rec|bluetoothctl|bluetooth panel|bluez-utils"
-  "rec|upower|battery|upower"
-  "rec|powerprofilesctl|power profiles|power-profiles-daemon"
-  "rec|brightnessctl|screen and keyboard brightness|brightnessctl"
-  "rec|wl-copy|clipboard history|wl-clipboard"
-  "rec|wtype|pasting from clipboard and emoji pickers|wtype"
-  "rec|grim|screenshots|grim"
-  "rec|slurp|region screenshots|slurp"
-  "rec|iw|Wi-Fi band switching|iw"
-  "rec|xkbcli|keyboard layout codes|libxkbcommon"
-  "rec|socat|fast IPC for key bindings|socat"
-  "opt|ddcutil|external monitor brightness|ddcutil"
-  "opt|magick|bar text color from the background|imagemagick"
-  "opt|fprintd-list|fingerprint unlock|fprintd"
-  "opt|wf-recorder|screen recording|wf-recorder"
-  "opt|tesseract|text capture (OCR)|tesseract tesseract-data-eng"
-  "opt|zbarimg|QR code capture|zbar"
-  "opt|hyprpicker|color picker|hyprpicker"
-)
-FONT_PKG=ttf-jetbrains-mono-nerd
-
-# Arch and its derivatives (EndeavourOS, CachyOS, Manjaro, ...) report arch in ID or ID_LIKE.
-is_arch() {
-  local ids
-  ids=$(. /etc/os-release 2>/dev/null && echo " ${ID:-} ${ID_LIKE:-} ")
-  have pacman && [[ $ids == *" arch "* ]]
+backup_path() {
+  local target="$1"
+  if [[ -e $target || -L $target ]]; then
+    local rel="${target#$HOME/}"
+    local dest="$BACKUP_DIR/$rel"
+    run mkdir -p "$(dirname "$dest")"
+    run cp -a "$target" "$dest"
+  fi
 }
 
-missing_req=() missing_pkgs=() need_font=0
+install_packages() {
+  local -a pkgs=()
+  mapfile -t pkgs < <(grep -hvE '^[[:space:]]*(#|$)' "$PROJECT_DIR/packages/arch-core.packages")
 
-scan_dependencies() {
-  local row f
-  missing_req=() missing_pkgs=() need_font=0
-  for row in "${DEPS[@]}"; do
-    IFS='|' read -ra f <<<"$row"
-    if have "${f[1]}"; then continue; fi
-    if [[ ${f[0]} == req ]]; then missing_req+=("${f[1]}"); fi
-    if [[ ${f[0]} != opt ]]; then missing_pkgs+=("${f[3]}"); fi
-  done
-  if [[ $(fc-list : family 2>/dev/null) != *[Nn]erd* ]]; then
-    need_font=1
-    missing_pkgs+=("$FONT_PKG")
+  if $WITH_OPTIONAL; then
+    local -a opt_pkgs=()
+    mapfile -t opt_pkgs < <(grep -hvE '^[[:space:]]*(#|$)' "$PROJECT_DIR/packages/arch-optional.packages")
+    pkgs+=("${opt_pkgs[@]}")
   fi
-  if (( ${#missing_pkgs[@]} )); then
-    mapfile -t missing_pkgs < <(printf '%s\n' "${missing_pkgs[@]}" | sort -u)
+
+  if (( ${#pkgs[@]} > 0 )); then
+    echo "==> Installing Arch repository packages via pacman..."
+    run sudo pacman -S --needed --noconfirm "${pkgs[@]}"
   fi
-  return 0
+
+  if $WITH_AUR; then
+    local -a aur_pkgs=()
+    mapfile -t aur_pkgs < <(grep -hvE '^[[:space:]]*(#|$)' "$PROJECT_DIR/packages/aur.packages")
+    if (( ${#aur_pkgs[@]} > 0 )); then
+      if command -v yay >/dev/null 2>&1; then
+        echo "==> Installing optional AUR packages via yay..."
+        run yay -S --needed --noconfirm "${aur_pkgs[@]}"
+      else
+        echo "Warning: yay not found; skipping AUR packages (${aur_pkgs[*]})" >&2
+      fi
+    fi
+  fi
 }
 
-report_dependencies() {
-  local tier row f
-  for tier in req rec opt; do
-    case $tier in
-      req) say "Required:" ;;
-      rec) say "Recommended (installed automatically):" ;;
-      opt) say "Optional:" ;;
-    esac
-    for row in "${DEPS[@]}"; do
-      IFS='|' read -ra f <<<"$row"
-      [[ ${f[0]} == "$tier" ]] || continue
-      if have "${f[1]}"; then say "  ok       ${f[1]}"
-      else say "  missing  ${f[1]}  (${f[2]}; package: ${f[3]})"; fi
-    done
-    if [[ $tier == rec ]]; then
-      if (( need_font )); then say "  missing  a Nerd Font  (icons; package: $FONT_PKG)"
-      else say "  ok       a Nerd Font"; fi
+install_runtime() {
+  echo "==> Installing Quattro runtime to $INSTALL_DIR..."
+  run mkdir -p "$INSTALL_DIR"
+
+  for item in applications bin default install shell themes icon.png icon.txt logo.svg logo.txt version LICENSE; do
+    if [[ -e $PROJECT_DIR/$item ]]; then
+      run rm -rf "$INSTALL_DIR/$item"
+      run cp -a "$PROJECT_DIR/$item" "$INSTALL_DIR/$item"
     fi
   done
-}
 
-confirm() {
-  (( ASSUME_YES )) && return 0
-  [[ -t 0 ]] || return 1
-  local reply
-  read -r -p "$1 [Y/n] " reply
-  [[ -z $reply || $reply == [Yy]* ]]
-}
-
-# One transaction first. If any package is unknown pacman refuses the whole set,
-# so fall back to one package at a time and report only the ones that fail.
-install_packages() {
-  local pkg failed=()
-  say "Installing: ${missing_pkgs[*]}"
-  if sudo pacman -S --needed --noconfirm "${missing_pkgs[@]}"; then return 0; fi
-  say "The combined install failed; trying one package at a time."
-  for pkg in "${missing_pkgs[@]}"; do
-    sudo pacman -S --needed --noconfirm "$pkg" || failed+=("$pkg")
+  echo "==> Linking quattro-* commands into $BIN_LINK_DIR..."
+  run mkdir -p "$BIN_LINK_DIR"
+  for bin_file in "$PROJECT_DIR"/bin/*; do
+    local name="${bin_file##*/}"
+    run ln -snf "$INSTALL_DIR/bin/$name" "$BIN_LINK_DIR/$name"
   done
-  if (( ${#failed[@]} )); then
-    say "Could not install: ${failed[*]}"
-    say "If downloads fail with 404, run 'sudo pacman -Syu' first and try again."
-  fi
-  return 0
 }
 
-install_dependencies() {
-  (( ${#missing_pkgs[@]} )) || return 0
-  say ""
-  if ! have sudo; then
-    say "sudo is needed to install: ${missing_pkgs[*]}"
-  elif confirm "Install ${missing_pkgs[*]} with pacman?"; then
-    install_packages
+install_user_configs() {
+  echo "==> Deploying ~/.config from $PROJECT_DIR/config (backups -> $BACKUP_DIR)..."
+  run mkdir -p "$HOME/.config"
+
+  local entry name target
+  for entry in "$PROJECT_DIR"/config/* "$PROJECT_DIR"/config/.*; do
+    name="${entry##*/}"
+    [[ $name == "." || $name == ".." ]] && continue
+    [[ -e $entry ]] || continue
+    target="$HOME/.config/$name"
+
+    if [[ -d $entry ]]; then
+      run mkdir -p "$target"
+      # Copy sub-items individually so existing user files outside Quattro's defaults are preserved in backup
+      while IFS= read -r -d '' src_file; do
+        local rel="${src_file#$entry/}"
+        local dst_file="$target/$rel"
+        backup_path "$dst_file"
+        run mkdir -p "$(dirname "$dst_file")"
+        run cp -a "$src_file" "$dst_file"
+      done < <(find "$entry" \( -type f -o -type l \) -print0)
+    else
+      backup_path "$target"
+      run cp -a "$entry" "$target"
+    fi
+  done
+
+  # Resolve __QUATTRO_PATH__ in chrome/chromium flags
+  for flags_file in "$HOME/.config/chrome-flags.conf" "$HOME/.config/chromium-flags.conf"; do
+    if $DRY_RUN; then
+      echo "[dry-run] sed -i s|__QUATTRO_PATH__|$INSTALL_DIR|g $flags_file"
+    elif [[ -f $flags_file ]]; then
+      sed -i "s|__QUATTRO_PATH__|$INSTALL_DIR|g" "$flags_file"
+    fi
+  done
+
+  # Enable hyperland-preview-share-picker automatically if installed
+  if command -v hyprland-preview-share-picker >/dev/null 2>&1 && [[ -f $HOME/.config/hypr/xdph.conf ]] && ! $DRY_RUN; then
+    sed -i 's|^    # custom_picker_binary = hyprland-preview-share-picker|    custom_picker_binary = hyprland-preview-share-picker|' "$HOME/.config/hypr/xdph.conf"
+  fi
+
+  # Seed ~/.bashrc
+  backup_path "$HOME/.bashrc"
+  run cp -a "$PROJECT_DIR/default/bashrc" "$HOME/.bashrc"
+
+  # Seed ~/.XCompose if missing
+  if [[ ! -f $HOME/.XCompose ]]; then
+    if $DRY_RUN; then
+      echo "[dry-run] write $HOME/.XCompose"
+    else
+      cat >"$HOME/.XCompose" <<EOF
+# Run quattro-restart-xcompose to apply changes
+
+# Include fast emoji access
+include "$INSTALL_DIR/default/xcompose"
+EOF
+    fi
+  fi
+
+  # Seed branding files for fastfetch & screensaver
+  run mkdir -p "$HOME/.config/quattro/branding" "$HOME/.config/quattro/themes"
+  [[ -f $HOME/.config/quattro/branding/about.txt ]] || run cp -a "$PROJECT_DIR/logo.txt" "$HOME/.config/quattro/branding/about.txt"
+  [[ -f $HOME/.config/quattro/branding/screensaver.txt ]] || run cp -a "$PROJECT_DIR/icon.txt" "$HOME/.config/quattro/branding/screensaver.txt"
+
+  # Seed Hyprland toggles
+  run mkdir -p "$HOME/.local/state/quattro/toggles/hypr"
+  for toggle in "$PROJECT_DIR"/default/hypr/toggles/*.lua; do
+    local tname="${toggle##*/}"
+    [[ -e $HOME/.local/state/quattro/toggles/hypr/$tname ]] || run cp -a "$toggle" "$HOME/.local/state/quattro/toggles/hypr/$tname"
+  done
+
+  # Seed UWSM user env drop-in & xdg-terminal-exec list
+  run mkdir -p "$HOME/.config/uwsm/env.d" "$HOME/.config/xdg-terminal-exec" "$HOME/.config/environment.d"
+  run cp -a "$PROJECT_DIR/default/uwsm/env.d/10-quattro" "$HOME/.config/uwsm/env.d/10-quattro"
+  run cp -a "$PROJECT_DIR/default/xdg-terminal-exec/hyprland-xdg-terminals.list" "$HOME/.config/xdg-terminal-exec/hyprland-xdg-terminals.list"
+  run cp -a "$PROJECT_DIR/default/environment.d/10-quattro-fcitx.conf" "$HOME/.config/environment.d/10-quattro-fcitx.conf"
+
+  if $DRY_RUN; then
+    echo "[dry-run] write $HOME/.config/environment.d/20-quattro-path.conf"
   else
-    say "Skipped. Re-run with --yes to install without asking, or install them yourself."
+    cat >"$HOME/.config/environment.d/20-quattro-path.conf" <<EOF
+QUATTRO_PATH=$INSTALL_DIR
+PATH=$BIN_LINK_DIR:$INSTALL_DIR/bin:\$PATH
+EOF
+  fi
+
+  # Install desktop entries, icons, and fonts to ~/.local/share
+  run mkdir -p "$HOME/.local/share/applications" "$HOME/.local/share/fonts/quattro" "$HOME/.config/fontconfig/conf.d"
+  run cp -a "$PROJECT_DIR"/applications/*.desktop "$HOME/.local/share/applications/"
+  run cp -a "$PROJECT_DIR/default/fonts/quattro/quattro.ttf" "$HOME/.local/share/fonts/quattro/quattro.ttf"
+  run cp -a "$PROJECT_DIR/default/fontconfig/conf.avail/50-quattro.conf" "$HOME/.config/fontconfig/conf.d/50-quattro.conf"
+
+  if [[ -d $PROJECT_DIR/applications/icons ]]; then
+    run mkdir -p "$HOME/.local/share/icons/hicolor/256x256/apps"
+    run cp -a "$PROJECT_DIR/applications/icons/." "$HOME/.local/share/icons/hicolor/256x256/apps/"
+    run cp -a "$PROJECT_DIR/icon.png" "$HOME/.local/share/icons/hicolor/256x256/apps/quattro.png"
+  fi
+
+  # User-level XKB option (Shift + CapsLock Compose), fastfetch, and mpv defaults
+  run mkdir -p "$HOME/.config/xkb/rules" "$HOME/.config/xkb/symbols"
+  run cp -a "$PROJECT_DIR/etc/xkb/rules/evdev" "$HOME/.config/xkb/rules/evdev"
+  run cp -a "$PROJECT_DIR/etc/xkb/symbols/quattro" "$HOME/.config/xkb/symbols/quattro"
+
+  if [[ ! -f $HOME/.config/fastfetch/config.jsonc ]]; then
+    backup_path "$HOME/.config/fastfetch/config.jsonc"
+    run mkdir -p "$HOME/.config/fastfetch"
+    run cp -a "$PROJECT_DIR/etc/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
+  fi
+
+  if [[ ! -f $HOME/.config/mpv/mpv.conf ]]; then
+    backup_path "$HOME/.config/mpv/mpv.conf"
+    run mkdir -p "$HOME/.config/mpv"
+    run cp -a "$PROJECT_DIR/etc/mpv/mpv.conf" "$HOME/.config/mpv/mpv.conf"
+  fi
+
+  # Install user systemd units
+  run mkdir -p "$HOME/.config/systemd/user/wireplumber.service.d"
+  for unit in "$PROJECT_DIR"/default/systemd/user/*.service; do
+    run cp -a "$unit" "$HOME/.config/systemd/user/"
+  done
+  run cp -a "$PROJECT_DIR/default/systemd/user/wireplumber.service.d/"*.conf "$HOME/.config/systemd/user/wireplumber.service.d/"
+
+  # Install default mimeapps if user doesn't have one yet
+  if [[ ! -f $HOME/.config/mimeapps.list ]]; then
+    run cp -a "$PROJECT_DIR/default/applications/mimeapps.list" "$HOME/.config/mimeapps.list"
+  fi
+
+  # Refresh font cache
+  if command -v fc-cache >/dev/null 2>&1; then
+    run fc-cache -f "$HOME/.local/share/fonts" || true
   fi
 }
 
-# Quattro supports Arch and its derivatives only.
-if (( !UNINSTALL )) && ! is_arch; then
-  echo "This installer supports Arch Linux and its derivatives only (pacman is required)." >&2
-  exit 1
-fi
-
-if (( UNINSTALL )); then
-  remove_links "$BIN_DIR"
-  [[ $BIN_DIR == "$LEGACY_BIN_DIR" ]] || remove_links "$LEGACY_BIN_DIR"
-  systemctl --user disable --now quattro-sleep-lock.service 2>/dev/null || true
-  rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/quattro-sleep-lock.service"
-  if [[ -f /etc/systemd/logind.conf.d/20-quattro-inhibit-delay.conf ]]; then
-    privileged /etc/systemd/logind.conf.d rm -f /etc/systemd/logind.conf.d/20-quattro-inhibit-delay.conf
+generate_initial_theme() {
+  echo "==> Generating initial theme ($THEME)..."
+  if $DRY_RUN; then
+    echo "[dry-run] QUATTRO_PATH=$INSTALL_DIR QUATTRO_THEME_HEADLESS=1 $INSTALL_DIR/bin/quattro-theme-set \"$THEME\""
+    return
   fi
-  say "Removed links and units. Run ./bin/quattro-apply-lock --remove to drop the PAM files; your config in $CONFIG_DIR is untouched."
-  exit 0
-fi
 
-scan_dependencies
-report_dependencies
-if (( CHECK_ONLY )); then
-  if (( ${#missing_req[@]} )); then exit 1; else exit 0; fi
-fi
-if (( !NO_DEPS )); then
-  install_dependencies
-  scan_dependencies
-fi
-if (( ${#missing_req[@]} )); then
-  say ""
-  say "Still missing: ${missing_req[*]}"
-  if [[ " ${missing_req[*]} " == *" quickshell "* ]]; then
-    say "quickshell is in the extra repository: run 'sudo pacman -Syu', then 'sudo pacman -S quickshell'."
+  export QUATTRO_PATH="$INSTALL_DIR"
+  export PATH="$BIN_LINK_DIR:$INSTALL_DIR/bin:$PATH"
+  export QUATTRO_THEME_HEADLESS=1
+
+  "$INSTALL_DIR/bin/quattro-theme-set" "$THEME"
+  mkdir -p "$HOME/.config/btop/themes"
+  ln -snf "$HOME/.local/state/quattro/current/theme/btop.theme" "$HOME/.config/btop/themes/current.theme"
+
+  if command -v quattro-theme-set-qt >/dev/null 2>&1; then
+    quattro-theme-set-qt || true
   fi
-  say "Install the missing required packages and run this again."
-  exit 1
+}
+
+install_system_configs() {
+  echo "==> Installing system-wide Arch integration (requires sudo)..."
+  run sudo mkdir -p /usr/local/share/wayland-sessions /etc/profile.d /usr/share/uwsm/env.d /etc/fastfetch /etc/mpv /etc/xdg/kitty /etc/xkb/rules /etc/xkb/symbols /etc/fonts/conf.d
+
+  run sudo cp -a "$PROJECT_DIR/default/wayland-sessions/quattro.desktop" /usr/local/share/wayland-sessions/quattro.desktop
+  run sudo cp -a "$PROJECT_DIR/etc/profile.d/quattro.sh" /etc/profile.d/quattro.sh
+  run sudo cp -a "$PROJECT_DIR/default/uwsm/env.d/10-quattro" /usr/share/uwsm/env.d/10-quattro
+  run sudo cp -a "$PROJECT_DIR/etc/fastfetch/config.jsonc" /etc/fastfetch/config.jsonc
+  run sudo cp -a "$PROJECT_DIR/etc/mpv/mpv.conf" /etc/mpv/mpv.conf
+  run sudo cp -a "$PROJECT_DIR/etc/xdg/kitty/kitty.conf" /etc/xdg/kitty/kitty.conf
+  run sudo cp -a "$PROJECT_DIR/etc/xkb/rules/evdev" /etc/xkb/rules/evdev
+  run sudo cp -a "$PROJECT_DIR/etc/xkb/symbols/quattro" /etc/xkb/symbols/quattro
+  run sudo cp -a "$PROJECT_DIR/default/fontconfig/conf.avail/50-quattro.conf" /etc/fonts/conf.d/50-quattro.conf
+
+  if $DRY_RUN; then
+    echo "[dry-run] write /etc/quattro.conf pointing to $INSTALL_DIR"
+  else
+    printf 'export QUATTRO_PATH="%s"\n' "$INSTALL_DIR" | sudo tee /etc/quattro.conf >/dev/null
+  fi
+}
+
+if $WITH_PACKAGES; then
+  install_packages
 fi
 
-chmod +x "$ROOT"/bin/* "$ROOT"/shell/plugins/clipboard/capture.sh "$ROOT"/shell/plugins/lock/poster.sh "$ROOT"/shell/services/hidden-entries.sh 2>/dev/null || true
+install_runtime
+install_user_configs
+generate_initial_theme
 
-say ""
-say "Linking commands into $BIN_DIR"
-targets=()
-for c in "${LINKED[@]}"; do
-  if [[ -e $ROOT/bin/$c ]]; then targets+=("$ROOT/bin/$c"); fi
-done
-privileged "$BIN_DIR" mkdir -p "$BIN_DIR"
-privileged "$BIN_DIR" ln -sf -t "$BIN_DIR" -- "${targets[@]}"
-[[ $BIN_DIR == "$LEGACY_BIN_DIR" ]] || remove_links "$LEGACY_BIN_DIR"
-case ":$PATH:" in *":$BIN_DIR:"*) ;; *) say "  note: $BIN_DIR is not on your PATH; add it to your shell profile." ;; esac
-
-say "Setting up $CONFIG_DIR"
-mkdir -p "$CONFIG_DIR"
-if [[ ! -e $CONFIG_DIR/env ]]; then
-  cat > "$CONFIG_DIR/env" <<'ENV'
-# Environment for the Quattro shell, read by quattro-launch-shell. Examples:
-#QUATTRO_TERMINAL=foot               # terminal for TUIs and prompts
-#QUATTRO_MENU_FONT="JetBrainsMono Nerd Font"
-ENV
+if [[ $MODE == "system" ]]; then
+  install_system_configs
 fi
 
-if [[ ! -e $STATE_DIR/current/theme/colors.toml ]]; then
-  QUATTRO_PATH=$ROOT "$ROOT/bin/quattro-theme-set" "$THEME" && say "Theme: $THEME"
-fi
+cat <<EOF
 
-if (( DO_LOCK )); then
-  "$ROOT/bin/quattro-apply-lock"
-else
-  say "Lock screen: run './install.sh --lock' once (needs sudo) or locking will refuse to start."
-fi
+Done! Quattro Arch port installed to: $INSTALL_DIR
 
-if (( DO_SLEEP )); then
-  unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-  mkdir -p "$unit_dir"
-  sed "s|@QUATTRO_PATH@|$ROOT|g" "$ROOT/default/systemd/user/quattro-sleep-lock.service" > "$unit_dir/quattro-sleep-lock.service"
-  sudo install -Dm644 "$ROOT/etc/systemd/logind.conf.d/20-quattro-inhibit-delay.conf" /etc/systemd/logind.conf.d/20-quattro-inhibit-delay.conf
-  systemctl --user daemon-reload
-  systemctl --user enable --now quattro-sleep-lock.service
-  say "Sleep lock enabled. Restart systemd-logind (or reboot) for the longer inhibit window to apply."
-fi
-
-say ""
-say "Done. Start the shell from Hyprland's autostart with:"
-say "    $ROOT/bin/quattro-launch-shell"
-say "or try it now from a Hyprland session:  quattro-launch-shell &"
+Next steps:
+  1. Ensure packages are installed (if you didn't pass --with-packages):
+     ./install.sh --with-packages
+  2. Open a new bash login shell (or run: source ~/.bashrc)
+  3. Switch themes anytime with:
+     quattro-theme-set "Tokyo Night"   # or catppuccin, gruvbox, kanagawa, nord, etc.
+  4. Start Hyprland from TTY/SDDM via:
+     uwsm start hyprland.desktop
+EOF

@@ -4,8 +4,6 @@
 # quattro:args=[Cloudflare|Google|DHCP|Custom]
 # quattro:examples=quattro dns | quattro dns Cloudflare | quattro dns Custom
 
-QUATTRO_PATH=${QUATTRO_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}
-export QUATTRO_PATH
 set -euo pipefail
 
 # Whenever this runs as root — invoked directly through the passwordless
@@ -45,7 +43,7 @@ provider_from_arg() {
 # The path etc/sudoers.d/quattro-dns names. The privileged half always runs from
 # there rather than from whichever copy was invoked, so the rule matches even
 # where $QUATTRO_PATH points at a checkout.
-PACKAGED_PATH=$(readlink -f "${BASH_SOURCE[0]}")
+PACKAGED_PATH=/usr/bin/quattro-dns
 
 # True when sudo would run this exact command without stopping for a password.
 # `sudo -l` on its own reports whether a command is permitted, which the blanket
@@ -104,11 +102,11 @@ current_dns_provider() {
   local compact=""
 
   dns=$(networkmanager_global_dns)
-  compact=${dns//[[:space:],]/}
-  if [[ -z $compact ]]; then
+  if [[ -z $(printf '%s' "$dns" | tr -d '[:space:],') ]]; then
     dns=$(resolved_dns)
-    compact=${dns//[[:space:],]/}
   fi
+
+  compact=$(printf '%s' "$dns" | tr -d '[:space:],')
 
   if [[ -z $compact ]]; then
     echo "DHCP"

@@ -1,0 +1,13 @@
+if [[ -z ${QUATTRO_PATH:-} ]]; then
+  if [[ -d $HOME/.local/share/quattro/default ]]; then
+    QUATTRO_PATH="$HOME/.local/share/quattro"
+  else
+    QUATTRO_PATH=/usr/share/quattro
+  fi
+fi
+source "$QUATTRO_PATH/default/bash/envs"
+source "$QUATTRO_PATH/default/bash/shell"
+source "$QUATTRO_PATH/default/bash/aliases"
+source "$QUATTRO_PATH/default/bash/functions"
+source "$QUATTRO_PATH/default/bash/init"
+[[ $- == *i* ]] && bind -f "$QUATTRO_PATH/default/bash/inputrc"

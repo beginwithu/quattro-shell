@@ -121,7 +121,6 @@ QtObject {
     if (role === "foreground" || role === "text") return foreground || Commons.Color.foreground
     if (role === "accent") return accent || Commons.Color.accent
     if (role === "urgent") return urgent || Commons.Color.urgent
-    if (role === "muted") return Commons.Color.muted
     if (role === "background") return Commons.Color.background
     if (role === "transparent") return Qt.rgba(0, 0, 0, 0)
     return colorFromHex(s, fb)
@@ -372,7 +371,6 @@ QtObject {
   readonly property var easeOut: [0.23, 1.0, 0.32, 1.0, 1.0, 1.0]
 
   function refresh() {
-    // Rounding, gaps and the animations flag are read from Hyprland.
     hyprctlProc.running = true
     gapsOutProc.running = true
     animationsProc.running = true

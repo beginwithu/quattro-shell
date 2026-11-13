@@ -1,0 +1,6 @@
+#!/bin/bash
+# quattro:summary=Launch the clipboard manager
+# quattro:group=menu
+# quattro:examples=quattro menu clipboard
+
+quattro-shell shell toggle quattro.clipboard

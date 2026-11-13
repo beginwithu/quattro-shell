@@ -17,10 +17,6 @@ BarWidget {
   visible: title !== "" && !vertical
   implicitWidth: visible ? Math.min(maxLabelWidth, labelText.implicitWidth) + Style.spacing.controlPaddingX * 2 : 0
   implicitHeight: barSize
-  readonly property bool tooltipHovered: visible && opacity > 0 && mouseArea.containsMouse
-
-  onTitleChanged: if (root.bar && root.tooltipHovered) root.bar.showTooltip(root, root.title)
-  onVisibleChanged: if (!visible && root.bar) root.bar.hideTooltip(root)
 
   Behavior on implicitWidth {
     NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic }
@@ -48,7 +44,6 @@ BarWidget {
   }
 
   MouseArea {
-    id: mouseArea
     anchors.fill: parent
     hoverEnabled: true
     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton

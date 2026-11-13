@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# quattro:summary=Launch Files in the active terminal's current directory
+
+cwd=$(quattro-cmd-terminal-cwd 2>/dev/null || echo "$HOME")
+exec quattro-launch-files "$cwd"

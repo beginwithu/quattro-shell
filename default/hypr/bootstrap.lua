@@ -5,7 +5,6 @@ local reload_prefixes = {
   "default.hypr",
   "hypr",
   "quattro.current.theme",
-  "quattro.toggles.hypr",
 }
 
 local function should_reload_module(module)
@@ -29,24 +28,28 @@ for _, module in ipairs(modules_to_reload) do
   package.loaded[module] = nil
 end
 
--- The checkout: $QUATTRO_PATH, else the folder this file was loaded from.
-local root = os.getenv("QUATTRO_PATH")
-if not root or root == "" then
-  local source = debug and debug.getinfo and debug.getinfo(1, "S").source or ""
-  root = source:match("^@(.*)/default/hypr/bootstrap%.lua$") or (home .. "/quattro-shell")
+local function resolve_quattro_path()
+  local env_path = os.getenv("QUATTRO_PATH")
+  if env_path and env_path ~= "" then
+    return env_path
+  end
+
+  local user_path = (home or "") .. "/.local/share/quattro"
+  local f = io.open(user_path .. "/default/hypr/quattro.lua", "r")
+  if f then
+    f:close()
+    return user_path
+  end
+
+  return "/usr/share/quattro"
 end
 
 -- Load generated state from ~/.local/state, user modules from ~/.config, and
 -- Quattro defaults from $QUATTRO_PATH.
-local state_home = os.getenv("XDG_STATE_HOME")
-if not state_home or state_home == "" then state_home = home .. "/.local/state" end
-local config_home = os.getenv("XDG_CONFIG_HOME")
-if not config_home or config_home == "" then config_home = home .. "/.config" end
-
-package.path = state_home
-  .. "/?.lua;"
-  .. config_home
-  .. "/?.lua;"
-  .. root
+package.path = home
+  .. "/.local/state/?.lua;"
+  .. home
+  .. "/.config/?.lua;"
+  .. resolve_quattro_path()
   .. "/?.lua;"
   .. package.path

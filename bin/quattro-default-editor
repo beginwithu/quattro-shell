@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# quattro:summary=Set the default editor used by quattro-launch-editor
+# quattro:args=[plain|code|cursor|zed|sublime_text|helix|vim|emacs|nvim]
+# quattro:examples=quattro default editor | quattro default editor plain | quattro default editor helix
+
+installing=false
+if [[ ${1:-} == "--install" ]]; then
+  installing=true
+  shift
+fi
+
+editor_file="$HOME/.local/state/quattro/defaults/editor"
+
+if (($# == 0)); then
+  if [[ -f $editor_file ]]; then
+    read -r editor <"$editor_file"
+  fi
+
+  # sublime-text-4 ships `subl`; older defaults stored `sublime_text`.
+  [[ $editor == sublime_text ]] && editor=subl
+
+  [[ -n $editor ]] && echo "$editor" || echo "plain"
+  exit 0
+fi
+
+case "$1" in
+plain) selection="plain"; editor="plain"; name="Plain"; glyph= ;;
+code) selection="code"; editor="code"; name="VSCode"; glyph= ;;
+cursor) selection="cursor"; editor="cursor"; name="Cursor"; glyph= ;;
+zed | zeditor) selection="zed"; editor="zeditor"; name="Zed"; glyph= ;;
+sublime_text | subl) selection="sublime_text"; editor="subl"; name="Sublime Text"; glyph= ;;
+helix) selection="helix"; editor="helix"; name="Helix"; glyph= ;;
+vim) selection="vim"; editor="vim"; name="Vim"; glyph= ;;
+emacs) selection="emacs"; editor="emacs"; name="Emacs"; glyph= ;;
+nvim) selection="nvim"; editor="nvim"; name="Neovim"; glyph= ;;
+*)
+  echo "Usage: quattro-default-editor <plain|code|cursor|zed|sublime_text|helix|vim|emacs|nvim>"
+  exit 1
+  ;;
+esac
+
+if quattro-cmd-missing "$editor"; then
+  if [[ $installing == "false" ]]; then
+    exec quattro-launch-floating-terminal-with-presentation quattro-default-editor --install "$selection"
+  else
+    case "$selection" in
+    plain) quattro-pkg-add plain ;;
+    code) quattro-install-editor-vscode ;;
+    cursor) quattro-pkg-add cursor-bin ;;
+    zed) quattro-install-editor-zed ;;
+    sublime_text) quattro-pkg-add sublime-text-4 ;;
+    helix) quattro-install-editor-helix ;;
+    vim) quattro-pkg-add vim ;;
+    emacs) quattro-install-editor-emacs ;;
+    nvim) quattro-pkg-add neovim ;;
+    esac || exit 1
+  fi
+fi
+
+mkdir -p "$(dirname "$editor_file")"
+printf '%s\n' "$editor" >"$editor_file"
+
+# Files and other apps open a text file with what mimeapps.list names for
+# its type, not Quattro's own default. Point every text type at the editor
+# handler, which opens the editor recorded above, so the choice made here is
+# the one every app follows.
+quattro-cmd-editor-mimetypes
+
+quattro-notification-send -g $glyph "$(quattro-i18n default.editorSet "$name")"

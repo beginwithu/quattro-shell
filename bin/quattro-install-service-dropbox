@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# quattro:summary=Install and start the Dropbox service. Must then be authenticated via the web.
+# quattro:requires-sudo=true
+
+echo "Installing all dependencies..."
+quattro-pkg-add dropbox dropbox-cli libappindicator python-gpgme
+
+echo "Adding Dropbox to the bar..."
+quattro-plugin-enable quattro.dropbox
+
+echo "Starting Dropbox..."
+uwsm-app -- dropbox-cli start &>/dev/null &
+echo "See Dropbox icon behind  hover tray in top right and right-click for setup."

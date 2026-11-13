@@ -1,9 +1,14 @@
 #!/bin/bash
 
-# quattro:summary=Run a command in a terminal and keep the window until a key is pressed
-# quattro:args=<command string or words>
-(( $# > 0 )) || exit 1
-if (( $# == 1 )); then
-  exec setsid quattro-terminal --hold bash -lc "$1"
-fi
-exec setsid quattro-terminal --hold "$@"
+# quattro:summary=Launch a floating terminal with the Quattro presentation wrapper
+# quattro:args=<command>
+
+# Export the current theme's gum styling so gum widgets match the active theme
+# even after a theme switch (the inherited environment is captured at login).
+source quattro-restart-gum
+
+cmd="$*"
+# 130 is the user bailing with Ctrl-C; anything else gets the Done/Failed prompt.
+presentation_script="quattro-show-logo; $cmd; code=\$?; if (( code != 130 )); then quattro-show-done \$code; fi"
+
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.quattro.terminal --title=Quattro -e bash -c "$presentation_script"

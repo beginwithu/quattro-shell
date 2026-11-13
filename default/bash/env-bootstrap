@@ -1,0 +1,65 @@
+# Single source of truth for QUATTRO_PATH + PATH adjustments. Sourced by:
+#   /etc/profile.d/quattro.sh                 (system login shells)
+#   /etc/skel/.bashrc                         (interactive shells)
+#   /usr/share/uwsm/env.d/10-quattro          (Hyprland session via uwsm)
+#   /usr/share/quattro/default/bash/envs      (bash rc chain; SSH/non-login)
+
+# /etc/quattro.conf is written by quattro-dev-link and reset by
+# quattro-dev-unlink. When absent, force the packaged default instead of
+# preserving a stale inherited value.
+if [ -f /etc/quattro.conf ]; then
+  . /etc/quattro.conf
+fi
+if [ -z "${QUATTRO_PATH:-}" ]; then
+  if [ -d "$HOME/.local/share/quattro/default" ]; then
+    QUATTRO_PATH="$HOME/.local/share/quattro"
+  else
+    QUATTRO_PATH=/usr/share/quattro
+  fi
+fi
+export QUATTRO_PATH
+
+# Ensure $QUATTRO_PATH/bin is on PATH when running from a standalone/user-local
+# or dev-linked checkout.
+if [ -d "${QUATTRO_PATH%/}/bin" ]; then
+  case ":$PATH:" in
+    *":${QUATTRO_PATH%/}/bin:"*) ;;
+    *) PATH="${QUATTRO_PATH%/}/bin${PATH:+:$PATH}" ;;
+  esac
+fi
+
+# mise's command wrappers must precede real tool directories inherited from a
+# parent shell, so scripts follow account switches without Bash functions.
+# mise activate also keeps this directory ahead of its managed tool binaries.
+quattro_wrapper_dir="${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/command-wrappers/bin"
+quattro_wrapper_path=$quattro_wrapper_dir
+if [ -n "${PATH:-}" ]; then
+  quattro_remaining_path=$PATH
+  while :; do
+    quattro_path_entry=${quattro_remaining_path%%:*}
+    if [ "$quattro_path_entry" != "$quattro_wrapper_dir" ]; then
+      quattro_wrapper_path="$quattro_wrapper_path:$quattro_path_entry"
+    fi
+    case "$quattro_remaining_path" in
+      *:*) quattro_remaining_path=${quattro_remaining_path#*:} ;;
+      *) break ;;
+    esac
+  done
+fi
+PATH=$quattro_wrapper_path
+unset quattro_wrapper_dir quattro_wrapper_path quattro_remaining_path quattro_path_entry
+
+# User-level tool paths, appended so system binaries keep precedence. This is
+# what lets login shells (ssh, bash -lc) and the uwsm session find mise-managed
+# tools without an interactive rc. Keep these directories in sync with the PAM
+# PATH line from install/config/ssh-command-path.sh, which covers SSH commands
+# that run no shell setup at all.
+case ":$PATH:" in
+  *":$HOME/.local/share/mise/shims:"*) ;;
+  *) PATH="${PATH:+$PATH:}$HOME/.local/share/mise/shims" ;;
+esac
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) PATH="${PATH:+$PATH:}$HOME/.local/bin" ;;
+esac
+export PATH

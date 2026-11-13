@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# quattro:summary=Overwrite all the user Hyprland Lua configs in ~/.config/hypr with the Quattro defaults.
+
+quattro-refresh-config hypr/.luarc.json
+quattro-refresh-config hypr/autostart.lua
+quattro-refresh-config hypr/bindings.lua
+quattro-refresh-config hypr/input.lua
+quattro-refresh-config hypr/looknfeel.lua
+quattro-refresh-config hypr/hyprland.lua
+quattro-refresh-config hypr/monitors.lua
+
+mkdir -p ~/.local/state/quattro/toggles/hypr
+cp "$QUATTRO_PATH/default/hypr/toggles/flags.lua" ~/.local/state/quattro/toggles/hypr/

@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# quattro:summary=Cycle to the next media source and transfer playback when the current source is playing
+# quattro:args=[next|previous]
+# quattro:examples=quattro audio source switch | quattro-audio-source-switch previous
+
+direction="${1:-next}"
+
+case "$direction" in
+  next)
+    quattro-shell media sourceSwitch
+    ;;
+  previous)
+    quattro-shell media sourceSwitchPrevious
+    ;;
+  *)
+    echo "Usage: quattro-audio-source-switch [next|previous]" >&2
+    exit 1
+    ;;
+esac

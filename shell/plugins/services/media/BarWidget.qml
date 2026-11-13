@@ -19,7 +19,6 @@ BarWidget {
   readonly property string artist: activePlayer ? (activePlayer.trackArtist || "") : ""
 
   property bool popupOpen: false
-  onHasMediaChanged: if (!hasMedia) popupOpen = false
 
   function close() { popupOpen = false }
   property real maxLabelWidth: 180
@@ -251,7 +250,7 @@ BarWidget {
             required property var modelData
 
             readonly property var player: modelData
-            readonly property bool selected: root.mediaService && root.activePlayer && player
+            readonly property bool selected: root.activePlayer && player
               && root.mediaService.playerKey(root.activePlayer) === root.mediaService.playerKey(player)
             readonly property string sourceTitle: player ? (player.trackTitle || player.identity || player.desktopEntry || I18n.t("media.mediaSource")) : I18n.t("media.mediaSource")
             readonly property string sourceDetail: player && player.trackArtist ? player.trackArtist : (player && player.identity ? player.identity : "")

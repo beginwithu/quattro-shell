@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# quattro:summary=Toggle suspend availability in the system menu
+
+if quattro-sleep-disabled; then
+  quattro-notification-send -g 󰒲 "$(quattro-i18n suspend.turnedOffOnMachine)"
+  exit 0
+fi
+
+quattro-toggle suspend-off
+
+if quattro-toggle-enabled suspend-off; then
+  quattro-notification-send -g 󰒲 "$(quattro-i18n suspend.removedFromMenu)"
+else
+  quattro-notification-send -g 󰒲 "$(quattro-i18n suspend.availableInMenu)"
+fi

@@ -1,0 +1,53 @@
+# Optional desktop, developer, printing, and media packages from Arch [core]/[extra].
+# Install with: ./install.sh --with-optional
+
+# Productivity & GUI apps
+gnome-disk-utility
+libreoffice-fresh
+localsend
+obsidian
+papers
+pinta
+
+# Screen recording & media
+gpu-screen-recorder
+yt-dlp
+
+# Containers & development
+cmake
+docker
+docker-buildx
+docker-compose
+dotnet-runtime
+libyaml
+luarocks
+mariadb-libs
+postgresql-libs
+ruby
+usage
+
+# CJK input method engines
+fcitx5-chewing
+fcitx5-chinese-addons
+fcitx5-hangul
+fcitx5-mozc
+fcitx5-table-extra
+
+# Printing & networking
+avahi
+bluez-tools
+bolt
+cups
+cups-filters
+cups-pk-helper
+dosfstools
+exfatprogs
+gvfs-nfs
+gvfs-smb
+inetutils
+nss-mdns
+plocate
+system-config-printer
+ufw
+whois
+wireless-regdb

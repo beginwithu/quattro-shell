@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# quattro:summary=Configure, inspect, or switch input methods
+# quattro:args=<status|cycle [back]|configure --seed|--defaults>
+# quattro:hidden=true
+
+set -euo pipefail
+
+if [[ ${1:-} == "cycle" ]]; then
+  direction=${2:-next}
+  if [[ $direction != "next" && $direction != "back" ]]; then
+    echo "Usage: quattro-input-method cycle [back]" >&2
+    exit 1
+  fi
+  # The shell's reader retains a choice made while nothing has focus.
+  if [[ $(quattro-shell shell cycleInput "$direction") != "ok" ]]; then
+    echo "The shell's input reader is not running" >&2
+    exit 1
+  fi
+else
+  /usr/bin/python3 "$QUATTRO_PATH/default/input-methods/configure.py" "$@"
+fi

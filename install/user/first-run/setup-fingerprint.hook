@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+# Only invite when there's a reader to use and it isn't set up yet (the lock
+# PAM file is the last thing the setup writes on success).
+if quattro-hw-fingerprint && [[ ! -f /etc/pam.d/quattro-lock-fingerprint ]] &&
+  quattro-done ensure fingerprint-setup-invitation; then
+  quattro-notification-send -u critical -g 󰈷 "$(quattro-i18n firstRun.fingerprintTitle)" \
+    "$(quattro-i18n firstRun.fingerprintBody)" \
+    --exec quattro-launch-floating-terminal-with-presentation quattro-setup-security-fingerprint
+fi

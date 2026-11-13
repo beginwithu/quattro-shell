@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# quattro:summary=Uninstall Slack Desktop and clean up its theme integration
+# quattro:hidden=true
+# quattro:requires-sudo=true
+
+set -euo pipefail
+
+quattro-pkg-drop slack-desktop
+override="$HOME/.local/share/applications/slack.desktop"
+if [[ -f $override ]] && grep -qE '^Exec=quattro-launch-slack( |$)' "$override"; then
+  rm "$override"
+  update-desktop-database "${override%/*}"
+fi
+rm -rf "$HOME/.local/state/quattro/slack"

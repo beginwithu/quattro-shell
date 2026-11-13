@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# quattro:summary=Edit, set, or reset About branding
+# quattro:group=branding
+# quattro:name=about
+# quattro:args=<image|text|reset>
+# quattro:examples=quattro branding about image | quattro branding about text | quattro branding about reset
+
+set -euo pipefail
+
+case "${1:-}" in
+image)
+  image=$(quattro-file-select --title "$(quattro-i18n branding.pickAboutImage)" --extensions "png svg")
+  if quattro-transcode-ascii "$image" ~/.config/quattro/branding/about.txt --width 54 --height 26; then
+    quattro-launch-about >/dev/null 2>&1
+  fi
+  ;;
+text)
+  quattro-launch-editor ~/.config/quattro/branding/about.txt >/dev/null 2>&1 && quattro-launch-about >/dev/null 2>&1
+  ;;
+reset)
+  cp "$QUATTRO_PATH/icon.txt" ~/.config/quattro/branding/about.txt && quattro-launch-about >/dev/null 2>&1
+  ;;
+*)
+  echo "Usage: quattro-branding-about <image|text|reset>" >&2
+  exit 1
+  ;;
+esac

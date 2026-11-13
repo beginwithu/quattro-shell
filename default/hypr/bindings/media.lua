@@ -2,6 +2,7 @@
 o.bind("XF86AudioRaiseVolume", "Volume up", { audio = "raise" }, { locked = true, repeating = true })
 o.bind("XF86AudioLowerVolume", "Volume down", { audio = "lower" }, { locked = true, repeating = true })
 o.bind("XF86AudioMute", "Mute", { audio = "mute-toggle" }, { locked = true })
+o.bind("XF86AudioMicMute", "Mute microphone", "quattro-audio-input-mute", { locked = true })
 o.bind("XF86MonBrightnessUp", "Brightness up", { brightness = "raise" }, { locked = true, repeating = true })
 o.bind("XF86MonBrightnessDown", "Brightness down", { brightness = "lower" }, { locked = true, repeating = true })
 o.bind("SHIFT + XF86MonBrightnessUp", "Brightness maximum", "quattro-brightness-display 100%", { locked = true, repeating = true })
@@ -14,6 +15,9 @@ o.bind("XF86KbdBrightnessDown", "Keyboard brightness down", "quattro-brightness-
 o.bind("CTRL + XF86MonBrightnessDown", "Keyboard brightness down", "quattro-brightness-keyboard down", { locked = true, repeating = true })
 o.bind("CTRL + XF86MonBrightnessUp", "Keyboard brightness up", "quattro-brightness-keyboard up", { locked = true, repeating = true })
 o.bind("XF86KbdLightOnOff", "Keyboard backlight cycle", "quattro-brightness-keyboard cycle", { locked = true })
+o.bind_toggle("XF86TouchpadToggle", "Toggle touchpad", "touchpad", { locked = true })
+o.bind("XF86TouchpadOn", "Enable touchpad", "quattro-toggle-touchpad on", { locked = true })
+o.bind("XF86TouchpadOff", "Disable touchpad", "quattro-toggle-touchpad off", { locked = true })
 
 -- Precise volume and brightness controls.
 o.bind("ALT + XF86AudioRaiseVolume", "Volume up precise", "quattro-audio-output-volume +1", { locked = true, repeating = true })
@@ -29,3 +33,7 @@ o.bind("XF86AudioPlay", "Play", { ipc = "media.playPause" }, { locked = true })
 o.bind("XF86AudioPrev", "Previous track", { ipc = "media.previous" }, { locked = true })
 o.bind("ALT + SHIFT + XF86AudioPlay", "Previous track", { ipc = "media.previous" }, { locked = true })
 o.bind("XF86Eject", "Eject media", "eject", { locked = true })
+
+o.bind("SHIFT + XF86AudioMute", "Switch audio output", "quattro-audio-output-switch", { locked = true })
+o.bind("SHIFT + XF86AudioPause", "Switch media source", "quattro-audio-source-switch", { locked = true })
+o.bind("SHIFT + XF86AudioPlay", "Switch media source", "quattro-audio-source-switch", { locked = true })

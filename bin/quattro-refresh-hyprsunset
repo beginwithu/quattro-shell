@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# quattro:summary=Overwrite the user config for hyprsunset with the Quattro default and restart the service.
+
+quattro-refresh-config hypr/hyprsunset.conf
+quattro-restart-hyprsunset

@@ -1,66 +1,60 @@
 #!/bin/bash
 
-# quattro:summary=Start the Quattro shell under Hyprland, keep its log in the journal, and relaunch it if it dies
+# quattro:summary=Launch the Quattro shell with its log kept in the journal
 # quattro:hidden=true
+
+# Quickshell only logs to its instance runtime dir (tmpfs), so when the shell
+# dies the idle/lock event trail is gone after a reboot. The journal keeps it
+# across sessions, bounded and timestamped, under the quattro-shell tag.
 #
-# Run this from Hyprland's autostart. It sets up the environment the shell
-# needs (QUATTRO_PATH, PATH with this checkout's bin/, ~/.config/quattro/env)
-# so the compositor does not have to.
-
-QUATTRO_PATH=${QUATTRO_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}
-export QUATTRO_PATH
-case ":$PATH:" in *":$QUATTRO_PATH/bin:"*) ;; *) export PATH="$QUATTRO_PATH/bin:$PATH" ;; esac
-
-# Per-user environment: QUATTRO_TERMINAL, QUATTRO_MENU_FONT, ...
-env_file="${XDG_CONFIG_HOME:-$HOME/.config}/quattro/env"
-if [[ -r $env_file ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$env_file"
-  set +a
-fi
-
-if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
-  echo "quattro-launch-shell: Hyprland is required (HYPRLAND_INSTANCE_SIGNATURE is not set)" >&2
-  exit 1
-fi
-
-command -v quickshell >/dev/null 2>&1 || { echo "quattro-launch-shell: quickshell is not installed" >&2; exit 1; }
-
-# Bounded, timestamped logging in the journal when systemd is there.
-if command -v systemd-cat >/dev/null 2>&1; then
-  logger_cmd=(systemd-cat -t quattro-shell --)
-else
-  logger_cmd=()
-fi
-
+# Backgrounded because bash defers a trap until a foreground command returns but
+# interrupts wait. systemd-cat execs, so the job is Quickshell itself.
+#
+# Quickshell's own reloading is off; Quattro restarts the shell deliberately.
+# A package upgrade rewriting $QUATTRO_PATH/shell would otherwise reload it
+# against a half-written tree, and that failed reload leaves a second engine
+# generation behind that turns the next restart's IPC kill into a crash.
 run_shell() {
-  QS_DISABLE_FILE_WATCHER=1 QS_NO_RELOAD_POPUP=1 \
-    "${logger_cmd[@]}" quickshell -n -p "$QUATTRO_PATH/shell" &
+  local startup_background
+  startup_background=$(readlink -f "$HOME/.local/state/quattro/current/background" 2>/dev/null)
+  QUATTRO_STARTUP_BACKGROUND="$startup_background" QS_DISABLE_FILE_WATCHER=1 QS_NO_RELOAD_POPUP=1 \
+    systemd-cat -t quattro-shell -- quickshell -n -p "$QUATTRO_PATH/shell" &
   shell_pid=$!
 
   local status
   while true; do
     wait "$shell_pid"
     status=$?
+
+    # An interrupted wait and a shell killed by that signal report alike.
     kill -0 "$shell_pid" 2>/dev/null || break
   done
+
   shell_pid=""
   return $status
 }
 
-# Qt leaves through _exit() when the Wayland connection fails, so Quickshell
-# cannot relaunch itself then. Supervise those deaths, but stop trying once
-# Hyprland's socket is gone: the session is ending.
+# A compositor busy reconfiguring outputs can miss a query without being gone,
+# and that is when the shell dies.
 compositor_alive() {
-  local socket=${WAYLAND_DISPLAY:-}
-  [[ -n $socket && -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] || return 1
-  [[ $socket == /* ]] || socket="${XDG_RUNTIME_DIR:-/run/user/$UID}/$socket"
-  [[ -S $socket && -S "${XDG_RUNTIME_DIR:-/run/user/$UID}/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket.sock" ]]
+  local attempt
+
+  for attempt in 1 2 3; do
+    hyprctl -j monitors >/dev/null 2>&1 && return 0
+    (( attempt < 3 )) && sleep 0.5
+  done
+
+  return 1
 }
 
+# Quickshell relaunches itself from its signal handlers, but Qt leaves through
+# _exit() when the Wayland connection fails, raising no signal: no crash report,
+# no relaunch, no bar. Supervise those deaths. A clean exit is a deliberate stop
+# (quattro-restart-shell starts its own replacement); a signal here means the
+# session is going, and has to reach the shell the launcher used to exec.
 terminating=0
 shell_pid=""
+
 stop() {
   terminating=1
   [[ -n $shell_pid ]] && kill -TERM "$shell_pid" 2>/dev/null
@@ -72,21 +66,28 @@ attempts=0
 window_started=$SECONDS
 
 while true; do
+  # A signal during the backoff only reaches the trap once the sleep is over.
   (( terminating )) && exit 0
+
   run_shell
   status=$?
+
   (( terminating )) && exit 0
   (( status == 0 )) && exit 0
+
+  # Relaunching into a session already tearing down burns the attempt budget.
   compositor_alive || exit 0
 
   if (( SECONDS - window_started > 60 )); then
     attempts=0
     window_started=$SECONDS
   fi
+
   if (( ++attempts > 5 )); then
-    logger -t quattro-shell "Giving up on the Quattro shell after $attempts relaunches in under a minute." 2>/dev/null
+    logger -t quattro-shell "Giving up on the Quattro shell after $attempts relaunches in under a minute."
     exit 1
   fi
-  logger -t quattro-shell "Quattro shell exited with status $status; relaunching." 2>/dev/null
+
+  logger -t quattro-shell "Quattro shell exited with status $status; relaunching."
   sleep 1
 done

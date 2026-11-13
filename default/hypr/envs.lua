@@ -8,10 +8,23 @@ require_optional.module("quattro.current.theme.gum_env")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
 
+local function file_readable(path)
+  local f = io.open(path, "r")
+  if f then
+    f:close()
+    return true
+  end
+  return false
+end
+
 -- Force all apps to use Wayland.
 hl.env("GDK_BACKEND", "wayland,x11,*")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
-hl.env("QT_QPA_PLATFORMTHEME", "qtengine")
+if file_readable("/usr/lib/qt6/plugins/platformthemes/libqtengine.so") or file_readable("/usr/lib/qt/plugins/platformthemes/libqtengine.so") then
+  hl.env("QT_QPA_PLATFORMTHEME", "qtengine")
+elseif file_readable("/usr/lib/qt6/plugins/platformthemes/libqt6ct.so") then
+  hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
+end
 hl.env("MOZ_ENABLE_WAYLAND", "1")
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "wayland")
 hl.env("OZONE_PLATFORM", "wayland")
@@ -34,6 +47,9 @@ for entry in (os.getenv("PATH") or "/usr/local/bin:/usr/bin"):gmatch("[^:]+") do
 end
 table.insert(kept, 1, bin_dir)
 hl.env("PATH", table.concat(kept, ":"))
+
+-- Hardware-specific environment.
+require("default.hypr.nvidia")
 
 hl.config({
   xwayland = {

@@ -15,12 +15,11 @@ Item {
   property var manifest: null
 
   property bool opened: false
-  // The 100 KB emoji list is read on first open, not when the shell starts.
-  property bool dataRequested: false
   property string filterText: ""
   property int selectedIndex: 0
   property bool cursorActive: false
   property var emojis: []
+  property var filteredEmojis: []
 
   // Shares the [menu] surface tokens — themes that style the menu also
   // style emojis. Selected-cell colors composed in the
@@ -42,10 +41,9 @@ Item {
 
   property int cellWidth: Math.max(Style.space(44), Style.font.display + Style.spacing.md)
   property int cellHeight: Math.max(Style.space(44), Style.font.display + Style.spacing.md)
-  property int columns: Math.max(1, Math.floor(resultGrid.width / cellWidth))
+  property int columns: Math.floor((cardWidth - contentMargin * 2) / cellWidth)
 
   function open(payloadJson) {
-    root.dataRequested = true
     root.opened = true
     root.filterText = ""
     root.selectedIndex = 0
@@ -76,6 +74,7 @@ Item {
 
   function rebuildDisplay() {
     var out = EmojiSearch.filterEmojis(root.emojis, root.filterText, 1000)
+    root.filteredEmojis = out
 
     displayModel.clear()
     for (var j = 0; j < out.length; j++) {
@@ -156,7 +155,7 @@ Item {
   ListModel { id: displayModel }
 
   FileView {
-    path: root.dataRequested ? root.quattroPath + "/shell/plugins/emojis/emojis.json" : ""
+    path: root.quattroPath + "/shell/plugins/emojis/emojis.json"
     onLoaded: root.loadEmojis(text())
   }
   OverlayWindow {
@@ -313,7 +312,7 @@ Item {
             anchors.centerIn: parent
             width: parent.width - 2 * root.contentMargin
             spacing: Style.space(8)
-            visible: displayModel.count === 0 && root.emojis.length > 0
+            visible: displayModel.count === 0
 
             Text {
               text: "󰈉"

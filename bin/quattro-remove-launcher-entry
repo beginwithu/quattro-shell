@@ -1,34 +1,105 @@
 #!/bin/bash
 
-# quattro:summary=Remove an application from the launcher
-# quattro:args=<desktop-id> [display name]
-#
-# A pacman-owned entry is uninstalled in a terminal after confirmation. A
-# desktop file in your home is deleted. Anything else is hidden with an override.
+# quattro:summary=Remove or uninstall the selected launcher entry
+# quattro:args=<desktop-id> <name>
+# quattro:hidden=true
+# quattro:requires-sudo=true
 
-id=${1:-}
-name=${2:-$id}
-[[ -n $id ]] || { echo "Usage: quattro-remove-launcher-entry <desktop-id> [name]" >&2; exit 1; }
-id=${id%.desktop}
+set -e
 
-file=""
-for dir in "${XDG_DATA_HOME:-$HOME/.local/share}/applications" /usr/local/share/applications /usr/share/applications; do
-  [[ -f $dir/$id.desktop ]] && { file=$dir/$id.desktop; break; }
+desktop_id="${1-}"
+entry_name="${2-}"
+
+if [[ -z $desktop_id ]]; then
+  echo "Usage: quattro-remove-launcher-entry <desktop-id> <name>" >&2
+  exit 1
+fi
+
+desktop_file_name="$desktop_id"
+if [[ $desktop_file_name != *.desktop ]]; then
+  desktop_file_name="$desktop_file_name.desktop"
+fi
+
+user_desktop_dirs=()
+desktop_dirs=()
+if [[ -n ${XDG_DATA_HOME-} ]]; then
+  user_desktop_dirs+=("$XDG_DATA_HOME/applications")
+else
+  user_desktop_dirs+=("$HOME/.local/share/applications")
+fi
+desktop_dirs+=("${user_desktop_dirs[@]}")
+
+if [[ -n ${XDG_DATA_DIRS-} ]]; then
+  IFS=: read -ra data_dirs <<<"$XDG_DATA_DIRS"
+  for data_dir in "${data_dirs[@]}"; do
+    desktop_dirs+=("$data_dir/applications")
+  done
+else
+  desktop_dirs+=("/usr/local/share/applications" "/usr/share/applications")
+fi
+
+desktop_file=""
+for dir in "${desktop_dirs[@]}"; do
+  candidate="$dir/$desktop_file_name"
+  if [[ -f $candidate ]]; then
+    desktop_file="$candidate"
+    break
+  fi
 done
 
-if [[ -n $file && $file == "$HOME"/* ]]; then
-  rm -f -- "$file"
-  quattro-notification-send "Removed $name" >/dev/null 2>&1 || true
+if [[ -z $desktop_file ]]; then
+  echo "Could not find launcher entry: $desktop_file_name" >&2
+  exit 1
+fi
+
+is_user_desktop_file() {
+  local dir desktop_dir
+
+  desktop_dir="${desktop_file%/*}"
+  for dir in "${user_desktop_dirs[@]}"; do
+    [[ $desktop_dir == $dir ]] && return 0
+  done
+
+  return 1
+}
+
+desktop_name="${desktop_file##*/}"
+desktop_name="${desktop_name%.desktop}"
+exec_line="$(sed -n 's/^Exec=//p' "$desktop_file" | head -1)"
+
+if [[ $exec_line =~ quattro-launch-webapp|quattro-webapp-handler ]]; then
+  QUATTRO_REMOVE_NOTIFY=false quattro-webapp-remove "$desktop_name"
   exit 0
 fi
 
-if [[ -n $file ]] && command -v pacman >/dev/null 2>&1 && package=$(pacman -Qqo "$file" 2>/dev/null | head -n1) && [[ -n $package ]]; then
-  quoted=$(printf '%q' "$package")
-  exec quattro-launch-floating-terminal-with-presentation "echo Uninstalling $quoted...; sudo pacman -Rns $quoted"
+if [[ $exec_line =~ (^|[[:space:]])(\$TERMINAL|xdg-terminal-exec)[[:space:]].*-e([[:space:]]|$) ]]; then
+  QUATTRO_REMOVE_NOTIFY=false quattro-tui-remove "$desktop_name"
+  exit 0
 fi
 
-# Not removable from here: shadow it with a hidden entry in your home, which the
-# launcher honours and which survives package updates.
-apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
-mkdir -p "$apps"
-printf '[Desktop Entry]\nType=Application\nName=%s\nHidden=true\n' "$name" > "$apps/$id.desktop"
+if [[ $desktop_file_name == "slack.desktop" && $exec_line =~ ^quattro-launch-slack($|[[:space:]]) ]]; then
+  exec quattro-launch-floating-terminal-with-presentation quattro-remove-service-slack
+fi
+
+if is_user_desktop_file; then
+  display_name="${entry_name:-$desktop_name}"
+  rm -f "$desktop_file"
+  update-desktop-database "${desktop_file%/*}" &>/dev/null || true
+  exit 0
+fi
+
+if package_name="$(pacman -Qqo "$desktop_file" 2>/dev/null | head -1)" && [[ -n $package_name ]]; then
+  display_name="${entry_name:-$desktop_name}"
+  quoted_package="$(printf '%q' "$package_name")"
+  quoted_display="$(printf '%q' "$display_name")"
+  exec quattro-launch-floating-terminal-with-presentation "echo Uninstalling $quoted_display...; sudo pacman -Rns $quoted_package"
+fi
+
+if quattro-cmd-present flatpak && flatpak info "${desktop_file_name%.desktop}" >/dev/null 2>&1; then
+  flatpak_id="${desktop_file_name%.desktop}"
+  quoted_flatpak="$(printf '%q' "$flatpak_id")"
+  exec quattro-launch-floating-terminal-with-presentation "flatpak uninstall $quoted_flatpak"
+fi
+
+echo "Don't know how to uninstall $desktop_file_name" >&2
+exit 1

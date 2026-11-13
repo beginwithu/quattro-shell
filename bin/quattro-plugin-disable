@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# quattro:summary=Disable a shell plugin
+# quattro:group=plugin
+# quattro:args=<id>
+
+set -euo pipefail
+
+fail() {
+  echo "quattro-plugin-disable: $*" >&2
+  exit 1
+}
+
+if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
+  echo "Usage: quattro plugin disable <id>"
+  exit 0
+fi
+
+id="${1:-}"
+[[ -n $id ]] || fail "plugin id is required"
+
+result=$(quattro-shell shell setPluginEnabled "$id" false)
+[[ $result == "ok" ]] ||
+  fail "plugin '$id' is not known; run: quattro-shell shell rescanPlugins"
+
+echo "Disabled $id"

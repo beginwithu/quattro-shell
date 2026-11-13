@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# quattro:summary=Toggle single-window square aspect ratio.
+
+case $(quattro-hyprland-toggle single-window-aspect-ratio) in
+  on) quattro-notification-send -g  "$(quattro-i18n window.squareOn)" ;;
+  off) quattro-notification-send -g  "$(quattro-i18n window.squareOff)" ;;
+esac

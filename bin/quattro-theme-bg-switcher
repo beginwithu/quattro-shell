@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# quattro:summary=Open the Quattro background switcher
+# quattro:group=theme
+# quattro:name=bg-switcher
+# quattro:aliases=quattro background
+
+theme_name=$(cat "$HOME/.local/state/quattro/current/theme.name" 2>/dev/null)
+current_background=$(readlink -f "$HOME/.local/state/quattro/current/background" 2>/dev/null)
+
+quattro-menu-images \
+  --selected "$current_background" \
+  "$HOME/.local/state/quattro/current/theme/backgrounds" \
+  "$HOME/.config/quattro/backgrounds/$theme_name"

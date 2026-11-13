@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# quattro:summary=Compatibility wrapper for quattro-migrate-notify.
+# quattro:hidden=true
+
+exec quattro-migrate-notify "$@"

@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# quattro:summary=Remove a supported browser and clean up Quattro browser defaults
+# quattro:args=<chrome|chromium|brave|brave-origin|edge|firefox|zen>
+# quattro:examples=quattro remove browser firefox | quattro remove browser brave
+# quattro:requires-sudo=true
+
+set_fallback_default_browser() {
+  local current_browser
+  current_browser=$(quattro-cmd-default-browser)
+
+  if [[ $current_browser != $1 ]]; then
+    return
+  fi
+
+  # Hand links to whichever of the two Chromium-family defaults stays behind.
+  if [[ $1 != "google-chrome.desktop" ]] && quattro-cmd-present google-chrome-stable; then
+    env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser google-chrome.desktop || true
+  elif [[ $1 != "chromium.desktop" ]] && quattro-cmd-present chromium; then
+    env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser chromium.desktop || true
+  fi
+}
+
+case $1 in
+chrome)
+  echo "Removing Chrome..."
+  set_fallback_default_browser google-chrome.desktop
+  quattro-pkg-drop google-chrome
+  rm -f ~/.config/chrome-flags.conf
+  sudo rm -f /etc/opt/chrome/policies/managed/color.json /etc/opt/chrome/policies/managed/quattro.json /etc/opt/chrome/policies/managed/quattro-extensions.json
+  ;;
+chromium)
+  echo "Removing Chromium..."
+  set_fallback_default_browser chromium.desktop
+  quattro-pkg-drop chromium
+  rm -f ~/.config/chromium-flags.conf
+  sudo rm -f /etc/chromium/policies/managed/color.json /etc/chromium/policies/managed/quattro.json
+  ;;
+edge)
+  echo "Removing Edge..."
+  set_fallback_default_browser microsoft-edge.desktop
+  quattro-pkg-drop microsoft-edge-stable-bin
+  rm -f ~/.config/microsoft-edge-stable-flags.conf
+  sudo rm -f /etc/opt/edge/policies/managed/color.json /etc/opt/edge/policies/managed/quattro.json
+  ;;
+brave)
+  echo "Removing Brave..."
+  set_fallback_default_browser brave-browser.desktop
+  quattro-pkg-drop brave-bin
+  rm -f ~/.config/brave-flags.conf
+
+  if quattro-pkg-missing brave-origin-bin; then
+    sudo rm -rf /etc/brave
+  fi
+  ;;
+brave-origin)
+  echo "Removing Brave Origin..."
+  set_fallback_default_browser brave-origin.desktop
+  quattro-pkg-drop brave-origin-bin
+  rm -f ~/.config/brave-origin-flags.conf
+
+  if quattro-pkg-missing brave-bin; then
+    sudo rm -rf /etc/brave
+  fi
+  ;;
+firefox)
+  echo "Removing Firefox..."
+  set_fallback_default_browser firefox.desktop
+  quattro-pkg-drop firefox
+  ;;
+zen)
+  echo "Removing Zen..."
+  set_fallback_default_browser zen.desktop
+  quattro-pkg-drop zen-browser-bin
+  ;;
+*)
+  echo "Usage: quattro-remove-browser <chrome|chromium|brave|brave-origin|edge|firefox|zen>"
+  exit 1
+  ;;
+esac

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# quattro:summary=Install Slack Desktop with live Quattro theme support
+# quattro:requires-sudo=true
+
+set -euo pipefail
+
+quattro-pkg-add slack-desktop
+if quattro-setup-slack; then
+  setsid uwsm-app -- gtk-launch slack >/dev/null 2>&1 &
+else
+  echo "Slack theme setup failed; opening packaged Slack." >&2
+  setsid uwsm-app -- gio launch /usr/share/applications/slack.desktop >/dev/null 2>&1 &
+fi

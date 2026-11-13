@@ -1,38 +1,85 @@
 #!/bin/bash
 
-# quattro:summary=Install the PAM service the lock screen authenticates through (needs root)
-# quattro:args=[--remove]
-#
-# Writes /etc/pam.d/quattro-lock-password, built on your distro's own stack, and
-# /etc/pam.d/quattro-lock-fingerprint when fprintd has an enrolled finger.
+# quattro:summary=Configure Quickshell lock screen authentication
+# quattro:requires-sudo=true
+# quattro:hidden=true
 
-as_root() { if (( EUID == 0 )); then "$@"; else sudo "$@"; fi; }
+set -e
 
-if [[ ${1:-} == --remove ]]; then
-  as_root rm -f /etc/pam.d/quattro-lock-password /etc/pam.d/quattro-lock-fingerprint
-  exit 0
+# Install and upgrade callers can start this helper as root. Ignore their PATH
+# so optional commands never fall through to a user-writable directory.
+if (( EUID == 0 )); then
+  export PATH=/usr/share/quattro/bin:/usr/local/bin:/usr/bin:/bin
 fi
 
-if [[ -f /etc/pam.d/system-auth ]]; then            # Arch, Fedora, openSUSE, Void ...
-  password_stack=$'auth       include      system-auth\naccount    include      system-auth'
-elif [[ -f /etc/pam.d/common-auth ]]; then          # Debian, Ubuntu and derivatives
-  password_stack=$'@include common-auth\n@include common-account'
-else
-  echo "quattro-apply-lock: could not find your distribution's PAM stack (system-auth or common-auth)." >&2
-  echo "Write /etc/pam.d/quattro-lock-password yourself; it only needs to authenticate the user." >&2
-  exit 1
+target_user=${QUATTRO_INSTALL_USER:-${SUDO_USER:-}}
+if [[ -z $target_user && -n ${PKEXEC_UID:-} ]]; then
+  target_user=$(getent passwd "$PKEXEC_UID" | cut -d: -f1)
 fi
+target_user=${target_user:-$USER}
+
+as_root() {
+  if (( EUID == 0 )); then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
 
 echo "Configuring lock screen password authentication..."
-printf '%s\n' "$password_stack" | as_root tee /etc/pam.d/quattro-lock-password >/dev/null || exit 1
 
-target_user=${SUDO_USER:-${USER:-$(id -un)}}
-if command -v fprintd-list >/dev/null 2>&1 && fprintd-list "$target_user" 2>&1 | grep -qE '^[[:space:]]*-[[:space:]]*#[0-9]+:'; then
-  echo "Configuring lock screen fingerprint authentication..."
-  printf 'auth       required     pam_fprintd.so\naccount    include      %s\n' \
-    "$([[ -f /etc/pam.d/system-auth ]] && echo system-auth || echo common-account)" |
-    as_root tee /etc/pam.d/quattro-lock-fingerprint >/dev/null
+as_root tee /etc/pam.d/quattro-lock-password >/dev/null <<'EOF'
+#%PAM-1.0
+auth       required                    pam_faillock.so preauth silent deny=10 unlock_time=120
+-auth      [success=2 default=ignore]  pam_systemd_home.so
+auth       [success=1 default=bad]     pam_unix.so try_first_pass nullok
+auth       [default=die]               pam_faillock.so authfail deny=10 unlock_time=120
+auth       optional                    pam_permit.so
+auth       required                    pam_env.so
+auth       required                    pam_faillock.so authsucc
+account    include                     system-local-login
+EOF
+
+# Install resume recovery alongside fingerprint PAM, so setup and upgrades
+# cannot leave one configured without the other.
+resume_hook_src="$QUATTRO_PATH/default/systemd/system-sleep/fprintd-resume"
+resume_hook_dst=/usr/lib/systemd/system-sleep/fprintd-resume
+stop_timeout_src="$QUATTRO_PATH/default/systemd/system/fprintd.service.d/10-stop-timeout.conf"
+stop_timeout_dst=/etc/systemd/system/fprintd.service.d/10-stop-timeout.conf
+
+# Keep the privileged probe pinned to /usr/bin; failure is not empty enrollment.
+if [[ -x /usr/bin/fprintd-list ]]; then
+  fingerprint_status=$(/usr/bin/fprintd-list "$target_user" 2>&1 || true)
 else
-  as_root rm -f /etc/pam.d/quattro-lock-fingerprint
+  fingerprint_status="no"
 fi
-echo "Lock screen authentication configured."
+
+if grep -qE '^[[:space:]]*-[[:space:]]*#[0-9]+:' <<< "$fingerprint_status"; then
+  echo "Configuring lock screen fingerprint authentication..."
+  as_root install -Dm755 -o root -g root "$resume_hook_src" "$resume_hook_dst"
+  as_root install -Dm644 -o root -g root "$stop_timeout_src" "$stop_timeout_dst"
+  as_root systemctl daemon-reload
+  as_root tee /etc/pam.d/quattro-lock-fingerprint >/dev/null <<'EOF'
+#%PAM-1.0
+auth       required                    pam_fprintd.so
+account    include                     system-local-login
+EOF
+elif [[ $fingerprint_status == "no" ]] || grep -qi 'has no fingers enrolled' <<< "$fingerprint_status"; then
+  as_root rm -f /etc/pam.d/quattro-lock-fingerprint "$resume_hook_dst"
+  # Only reload when something was there: this branch also runs in the
+  # install chroot, where there is no systemd to reload.
+  if [[ -e $stop_timeout_dst ]]; then
+    as_root rm -f "$stop_timeout_dst"
+    as_root rmdir --ignore-fail-on-non-empty "$(dirname "$stop_timeout_dst")"
+    as_root systemctl daemon-reload
+  fi
+else
+  echo "Could not check fingerprint enrollment; keeping the existing configuration." >&2
+fi
+
+# quattro-shell can't reach a running shell during chroot install. The echo
+# is just confirmation, so swallow the failure rather than letting it become
+# the script's exit code.
+if quattro-shell lock status >/dev/null 2>&1; then
+  echo "Lock screen authentication configured."
+fi

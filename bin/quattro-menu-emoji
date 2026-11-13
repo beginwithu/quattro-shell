@@ -1,0 +1,6 @@
+#!/bin/bash
+# quattro:summary=Launch emojis
+# quattro:group=menu
+# quattro:examples=quattro menu emoji
+
+quattro-shell shell toggle quattro.emojis

@@ -1,0 +1,12 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = quattro-settings
+Target = quattro-settings-dev
+
+[Action]
+Description = Pausing Hyprland config auto-reload for Quattro settings update...
+When = PreTransaction
+Depends = quattro
+Exec = /usr/bin/quattro-hyprland-reload-guard pause

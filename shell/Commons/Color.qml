@@ -29,7 +29,7 @@ QtObject {
 
   function pick(key, fallback) {
     var v = shellValues[key]
-    return (typeof v === "string" && v.length > 0) ? flatColor(v, fallback) : fallback
+    return (typeof v === "string" && v.length > 0) ? v : fallback
   }
 
   function pickAlpha(key, fallback) {
@@ -73,7 +73,7 @@ QtObject {
   // Compose a color from a base-color key and its `-alpha` companion. If the
   // base token is a gradient, color-only consumers use the first stop.
   function composed(colorKey, alphaKey, colorFallback, alphaFallback) {
-    return Util.alpha(pick(colorKey, colorFallback), pickAlpha(alphaKey, alphaFallback))
+    return Util.alpha(flatColor(pick(colorKey, colorFallback), colorFallback), pickAlpha(alphaKey, alphaFallback))
   }
 
   readonly property QtObject bar: QtObject {
@@ -121,7 +121,7 @@ QtObject {
   readonly property QtObject lock: QtObject {
     property color background: root.composed("lock.background", "lock.background-alpha", root.background, 0.8)
     property color text: root.pick("lock.text", root.foreground)
-    property color placeholder: root.pick("lock.placeholder", Util.alpha(root.foreground, 0.66))
+    property color placeholder: root.shellValues["lock.placeholder"] ? root.flatColor(root.shellValues["lock.placeholder"], Util.alpha(root.foreground, 0.66)) : Util.alpha(root.foreground, 0.66)
     property color textError: root.pick("lock.text-error", root.urgent)
     property color border: root.composed("lock.border", "lock.border-alpha", root.foreground, 1.0)
     property color borderActive: root.composed("lock.border-active", "lock.border-alpha", root.accent, 1.0)

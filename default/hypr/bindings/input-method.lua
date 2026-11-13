@@ -14,6 +14,11 @@ local function active_window_is_terminal()
   return false
 end
 
+-- Keep the desktop shortcut independent of Fcitx's custom switching keys.
+-- Read the live Fcitx group so setup works without a compositor reload.
+o.bind("SUPER + I", "Switch input language", "quattro-input-method cycle")
+o.bind("SUPER + SHIFT + I", "Switch input language back", "quattro-input-method cycle back")
+
 -- Pass the tmux/Herdr prefix through and return to direct input, so the next
 -- key reaches the multiplexer instead of the engine's composition.
 o.bind("CTRL + SPACE", "Direct input for the terminal prefix", function()

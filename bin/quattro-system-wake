@@ -1,6 +1,10 @@
 #!/bin/bash
 
-# quattro:summary=Bring displays and keyboard backlight back after idle or sleep
+# quattro:summary=Wake displays and restore brightness after idle
+# quattro:group=system
+# quattro:name=wake
+# quattro:examples=quattro system wake
+
 quattro-brightness-display on
 quattro-brightness-keyboard restore
-exit 0
+quattro-hyprland-monitor-clamshell >/dev/null 2>&1 || true

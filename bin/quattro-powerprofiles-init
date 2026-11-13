@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# quattro:summary=Set the correct power profile on boot based on current AC/battery state.
+
+exec quattro-powerprofiles-set autodetect

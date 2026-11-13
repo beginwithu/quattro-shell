@@ -1,0 +1,6 @@
+// Quattro's own XKB option. libxkbcommon reads /etc/xkb before the system
+// rules, which supply everything else.
+! include %S/evdev
+
+! option = symbols
+  quattro:shift_caps_compose = +quattro(shift_caps_compose)

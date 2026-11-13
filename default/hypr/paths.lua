@@ -6,18 +6,6 @@ local home = os.getenv("HOME")
 
 -- A variable that is set but empty means "unset" (XDG Base Directory spec);
 -- bash's ${VAR:-fallback} in the sibling tools treats it the same way.
--- The checkout: $QUATTRO_PATH, else the folder this file was loaded from
--- (<root>/default/hypr/paths.lua), else ~/quattro-shell.
-local function quattro_root()
-  local from_env = os.getenv("QUATTRO_PATH")
-  if from_env and from_env ~= "" then
-    return from_env
-  end
-
-  local source = debug and debug.getinfo and debug.getinfo(1, "S").source or ""
-  return source:match("^@(.*)/default/hypr/paths%.lua$") or (home .. "/quattro-shell")
-end
-
 local function env_or(name, fallback)
   local value = os.getenv(name)
   if value == nil or value == "" then
@@ -26,9 +14,25 @@ local function env_or(name, fallback)
   return value
 end
 
+local function resolve_quattro_path()
+  local env_path = os.getenv("QUATTRO_PATH")
+  if env_path ~= nil and env_path ~= "" then
+    return env_path
+  end
+
+  local user_path = (home or "") .. "/.local/share/quattro"
+  local f = io.open(user_path .. "/default/hypr/quattro.lua", "r")
+  if f then
+    f:close()
+    return user_path
+  end
+
+  return "/usr/share/quattro"
+end
+
 return {
   home = home,
   config_home = env_or("XDG_CONFIG_HOME", home .. "/.config"),
   state_home = env_or("XDG_STATE_HOME", home .. "/.local/state"),
-  quattro_path = quattro_root(),
+  quattro_path = resolve_quattro_path(),
 }

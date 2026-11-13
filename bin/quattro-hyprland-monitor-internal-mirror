@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# quattro:summary=Enable, disable, toggle, or recover mirroring the internal display to every external monitor
+# quattro:args=<on|off|toggle|recover>
+
+TOGGLE="internal-monitor-mirror"
+TOGGLE_FLAG="$HOME/.local/state/quattro/toggles/hypr/$TOGGLE.lua"
+DISABLE_TOGGLE="internal-monitor-disable"
+
+INTERNAL=$(quattro-hyprland-monitor-laptop)
+# Every active external monitor shows the internal display, as a Mac mirrors
+# all its displays.
+mapfile -t EXTERNALS < <(hyprctl monitors -j | jq -r '.[] | select(.name | test("^(eDP|LVDS|DSI)-") | not).name')
+
+on() {
+  if (( ${#EXTERNALS[@]} == 0 )); then
+    quattro-notification-send -g 󰍹 "$(quattro-i18n monitor.noExternalForMirror)"
+    exit 1
+  fi
+
+  if [[ -z $INTERNAL ]]; then
+    quattro-notification-send -g 󰍹 "$(quattro-i18n monitor.noLaptopToMirror)"
+    exit 1
+  fi
+
+  # The names are written into generated Lua below, so only plain connector
+  # names may pass; a user-created headless output can carry any name.
+  for output in "$INTERNAL" "${EXTERNALS[@]}"; do
+    if [[ ! $output =~ ^[A-Za-z0-9._-]+$ ]]; then
+      quattro-notification-send -g 󰍹 "$(quattro-i18n monitor.unsafeName)"
+      exit 1
+    fi
+  done
+
+  quattro-hyprland-toggle $DISABLE_TOGGLE off
+
+  if quattro-hyprland-toggle-disabled $TOGGLE; then
+    for external in "${EXTERNALS[@]}"; do
+      printf 'hl.monitor({ output = "%s", mode = "preferred", position = "auto", scale = 1, mirror = "%s" })\n' "$external" "$INTERNAL"
+    done >"$TOGGLE_FLAG"
+    quattro-restart-hyprctl
+  fi
+}
+
+off() {
+  if quattro-hyprland-toggle-enabled $TOGGLE; then
+    quattro-hyprland-toggle $TOGGLE off
+  fi
+}
+
+toggle() {
+  if quattro-hyprland-toggle-enabled $TOGGLE; then
+    off
+  else
+    on
+  fi
+}
+
+recover() {
+  if ! quattro-hyprland-monitor-external-active && quattro-hyprland-toggle-enabled $TOGGLE; then
+    quattro-hyprland-toggle $TOGGLE off
+  fi
+}
+
+case "$1" in
+  on) on ;;
+  off) off ;;
+  toggle) toggle ;;
+  recover) recover ;;
+  *)
+    echo "Usage: $(basename "$0") {on|off|toggle|recover}" >&2
+    exit 1
+    ;;
+esac

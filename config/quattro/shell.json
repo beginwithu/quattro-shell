@@ -1,7 +1,7 @@
 {
   "version": 1,
   "idle": {
-    "screensaver": 0,
+    "screensaver": 150,
     "lock": 300
   },
   "bar": {
@@ -9,11 +9,17 @@
     "background": "opaque",
     "layout": {
       "left": [
-        { "id": "quattro.menu" },
-        { "id": "quattro.workspaces" }
+        {
+          "id": "quattro.menu"
+        },
+        {
+          "id": "quattro.workspaces"
+        }
       ],
       "centerBegin": [
-        { "id": "quattro.indicators" }
+        {
+          "id": "quattro.indicators"
+        }
       ],
       "center": [
         {
@@ -24,17 +30,52 @@
         }
       ],
       "centerEnd": [
-        { "id": "quattro.weather" }
+        {
+          "id": "quattro.elsewhen"
+        },
+        {
+          "id": "quattro.weather"
+        },
+        {
+          "id": "quattro.system-update"
+        }
       ],
       "right": [
-        { "id": "quattro.tray" },
-        { "id": "quattro.keyboard-layout" },
-        { "id": "quattro.bluetooth" },
-        { "id": "quattro.network" },
-        { "id": "quattro.audio" },
-        { "id": "quattro.power" }
+        {
+          "id": "quattro.tray"
+        },
+        {
+          "id": "quattro.keyboard-layout"
+        },
+        {
+          "id": "quattro.bluetooth"
+        },
+        {
+          "id": "quattro.network"
+        },
+        {
+          "id": "quattro.audio"
+        },
+        {
+          "id": "quattro.monitor"
+        },
+        {
+          "id": "quattro.power"
+        }
       ]
     }
+  },
+  "dock": {
+    "position": "bottom",
+    "pinned": [
+      "folio",
+      "quattro-browser",
+      "quattro-terminal",
+      "omacalc",
+      "omawrite",
+      "hype",
+      "cliamp"
+    ]
   },
   "plugins": []
 }

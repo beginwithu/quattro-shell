@@ -1,0 +1,16 @@
+[binds]
+
+# Print the current image file
+<Ctrl+p> = exec lp "$imv_current_file"
+
+# Trash the current image and quit the viewer (recoverable from Trash)
+<Ctrl+x> = exec gio trash -- "$imv_current_file"; quit
+
+# Trash the current image and move to the next one
+<Ctrl+Shift+X> = exec gio trash -- "$imv_current_file"; close
+
+# Rotate the currently open image by 90 degrees
+<Ctrl+r> = exec mogrify -rotate 90 "$imv_current_file"
+
+# Edit the current image in Omasnap (or Arch fallback editor) and quit the viewer
+<Ctrl+e> = exec sh -c 'if command -v omasnap >/dev/null; then omasnap "$1"; elif command -v swappy >/dev/null; then swappy -f "$1"; elif command -v satty >/dev/null; then satty -f "$1"; elif command -v pinta >/dev/null; then pinta "$1"; fi' _ "$imv_current_file" & ; quit

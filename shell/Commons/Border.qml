@@ -72,7 +72,6 @@ QtObject {
     if (role === "foreground" || role === "text") return cssColor(Commons.Color.foreground, a)
     if (role === "accent") return cssColor(Commons.Color.accent, a)
     if (role === "urgent") return cssColor(Commons.Color.urgent, a)
-    if (role === "muted") return cssColor(Commons.Color.muted, a)
     if (role === "background") return cssColor(Commons.Color.background, a)
     if (role === "transparent") return "transparent"
     return Geometry.canonicalColor(s, a)
