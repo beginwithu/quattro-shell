@@ -1886,7 +1886,7 @@ Item {
           window: barWindow
           pool: horizontalPool
           anchors.left: parent.left
-          anchors.leftMargin: Style.space(8)
+          anchors.leftMargin: 0
           anchors.verticalCenter: parent.verticalCenter
         }
 
