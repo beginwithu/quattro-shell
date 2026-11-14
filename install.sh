@@ -358,5 +358,8 @@ EOF
 
 if ! $SANDBOX && [[ -d /run/systemd/system ]] && [[ -z ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] && ! systemctl is-active --quiet sddm.service; then
   echo "==> Starting SDDM..."
-  sudo systemctl enable --now sddm.service
+  sudo systemctl enable sddm.service
+
+  echo "Rebooting the System..."
+  reboot
 fi
