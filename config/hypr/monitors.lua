@@ -16,7 +16,7 @@
 -- quattro_monitor_panel_settings = false
 
 -- Scale every monitor without a choice of its own (Quattro picks "auto").
--- hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1.6 })
+-- hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
 
 -- GTK and XWayland scale, a whole number (Quattro sets 2 until a scale is
 -- chosen in the panel, then follows the lowest monitor scale).
