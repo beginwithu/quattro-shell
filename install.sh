@@ -360,5 +360,5 @@ if ! $SANDBOX && [[ -d /run/systemd/system ]] && [[ -z ${DISPLAY:-}${WAYLAND_DIS
   echo "==> Enabling SDDM..."
   sudo systemctl enable sddm.service
   echo "Rebooting the System..."
-  reboot
+  sudo reboot
 fi
