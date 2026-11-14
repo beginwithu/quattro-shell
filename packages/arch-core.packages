@@ -76,6 +76,7 @@ ddcutil
 fcitx5
 ffmpeg
 ffmpegthumbnailer
+gpu-screen-recorder
 grim
 libvips
 mpv
@@ -93,6 +94,7 @@ slurp
 tesseract
 tesseract-data-eng
 udiskie
+wf-recorder
 wireplumber
 wl-clipboard
 wtype
