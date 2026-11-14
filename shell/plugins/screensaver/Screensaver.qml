@@ -72,18 +72,20 @@ Item {
   }
 
   function close() {
-    dismiss()
-  }
-
-  function dismiss() {
     if (!opened) return
     armTimer.stop()
     armed = false
     opened = false
+    if (root.standalone) Qt.quit()
+  }
+
+  function dismiss() {
+    if (!opened) return
     if (root.shell && typeof root.shell.hide === "function") {
       root.shell.hide((root.manifest && root.manifest.id) || "quattro.screensaver")
+    } else {
+      close()
     }
-    if (root.standalone) Qt.quit()
   }
 
   Timer {

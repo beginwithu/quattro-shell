@@ -162,7 +162,25 @@ Item {
   }
 
   function close() {
-    cancel()
+    if (!root.opened && !root.requestActive && !root.doneFile) return
+    _clearAndRelease()
+  }
+
+  function _clearAndRelease() {
+    var activeDoneFile = root.doneFile
+    root.requestActive = false
+    root.hidingForRegion = false
+    root.opened = false
+    root.selectionFile = ""
+    root.doneFile = ""
+    root.filterText = ""
+
+    if (activeDoneFile) {
+      resultProc.command = ["bash", "-c", ": > " + Util.shellQuote(activeDoneFile)]
+      resultProc.running = true
+    } else if (root.standalone) {
+      Qt.quit()
+    }
   }
 
   function releaseDoneFile(path) {
@@ -199,23 +217,9 @@ Item {
   }
 
   function cancel() {
-    var activeDoneFile = root.doneFile
-    root.requestActive = false
-    root.hidingForRegion = false
-    root.opened = false
-    root.selectionFile = ""
-    root.doneFile = ""
-    root.filterText = ""
-
+    _clearAndRelease()
     if (root.shell && typeof root.shell.hide === "function") {
       root.shell.hide((root.manifest && root.manifest.id) || "quattro.share-picker")
-    }
-
-    if (activeDoneFile) {
-      resultProc.command = ["bash", "-c", ": > " + Util.shellQuote(activeDoneFile)]
-      resultProc.running = true
-    } else if (root.standalone) {
-      Qt.quit()
     }
   }
 

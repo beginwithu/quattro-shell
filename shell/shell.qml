@@ -1227,20 +1227,29 @@ ShellRoot {
     return true
   }
 
+  property var _hidingPanelIds: ({})
+
   function hide(pluginId) {
     var id = shell.pluginRegistry.resolveEnabledId(pluginId)
     if (!id) return false
+    if (_hidingPanelIds[id]) return true
     if (shell.isBarWidgetPanelPlugin(id)) {
       var hidden = shell.bar && typeof shell.bar.hideBarWidget === "function"
         && shell.bar.hideBarWidget(id)
       if (!hidden) console.warn("hide: no live bar widget for:", id)
       return hidden === true
     }
-    invokeIfLoaded(id, "close", null)
-    if (!openPanelIds[id]) return true
-    var next = ({})
-    for (var k in openPanelIds) if (k !== id) next[k] = openPanelIds[k]
-    openPanelIds = next
+    _hidingPanelIds[id] = true
+    try {
+      if (openPanelIds[id]) {
+        var next = ({})
+        for (var k in openPanelIds) if (k !== id) next[k] = openPanelIds[k]
+        openPanelIds = next
+      }
+      invokeIfLoaded(id, "close", null)
+    } finally {
+      delete _hidingPanelIds[id]
+    }
     return true
   }
 
