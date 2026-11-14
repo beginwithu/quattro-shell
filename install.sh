@@ -325,7 +325,9 @@ EOF
   fi
 
   echo "==> Enabling SDDM display manager..."
-  sudo systemctl enable --force sddm.service
+  sudo systemctl enable sddm.service
+  echo "Rebooting the System..."
+  sudo reboot
 }
 
 if ! $SANDBOX; then
@@ -359,6 +361,4 @@ EOF
 if ! $SANDBOX && [[ -d /run/systemd/system ]] && [[ -z ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] && ! systemctl is-active --quiet sddm.service; then
   echo "==> Enabling SDDM..."
   sudo systemctl enable sddm.service
-  echo "Rebooting the System..."
-  sudo reboot
 fi
