@@ -13,4 +13,4 @@
 <Ctrl+r> = exec mogrify -rotate 90 "$imv_current_file"
 
 # Edit the current image in Omasnap (or Arch fallback editor) and quit the viewer
-<Ctrl+e> = exec sh -c 'if command -v omasnap >/dev/null; then omasnap "$1"; elif command -v swappy >/dev/null; then swappy -f "$1"; elif command -v satty >/dev/null; then satty -f "$1"; elif command -v pinta >/dev/null; then pinta "$1"; fi' _ "$imv_current_file" & ; quit
+<Ctrl+e> = exec sh -c 'f=$1; for e in omasnap "swappy -f" "satty -f" pinta; do set -- $e; command -v $1 >/dev/null && exec $@ "$f"; done' _ "$imv_current_file" & ; quit
