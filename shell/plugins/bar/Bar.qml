@@ -1895,7 +1895,7 @@ Item {
           pool: horizontalPool
           id: rightModules
           anchors.right: parent.right
-          anchors.rightMargin: Style.space(8)
+          anchors.rightMargin: 1
           anchors.verticalCenter: parent.verticalCenter
         }
 
@@ -1935,7 +1935,7 @@ Item {
           window: barWindow
           pool: verticalPool
           anchors.top: parent.top
-          anchors.topMargin: Style.space(8)
+          anchors.topMargin: 1
           anchors.horizontalCenter: parent.horizontalCenter
         }
 
@@ -1943,7 +1943,7 @@ Item {
           window: barWindow
           pool: verticalPool
           anchors.bottom: parent.bottom
-          anchors.bottomMargin: Style.space(8)
+          anchors.bottomMargin: 1
           anchors.horizontalCenter: parent.horizontalCenter
         }
       }
