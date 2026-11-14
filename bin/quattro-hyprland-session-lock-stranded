@@ -14,6 +14,6 @@
 # as a crash re-execs the shell in place.
 quattro-hyprland-session-locked || exit
 
-if pgrep -u "$UID" -x 'quickshell|qs|hyprlock' | grep -qvxF "$1"; then
+if pgrep -u "$UID" -x 'quattro-cpp|quickshell|qs|hyprlock' | grep -qvxF "$1"; then
   exit 2
 fi

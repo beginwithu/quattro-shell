@@ -1,0 +1,7 @@
+<RCC>
+  <qresource prefix="/assets">
+    <file alias="emojis.json">assets/emojis.json</file>
+    <file alias="cities.json">assets/cities.json</file>
+    <file alias="world.json">assets/world.json</file>
+  </qresource>
+</RCC>

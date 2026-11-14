@@ -46,6 +46,13 @@ install_runtime() {
   echo "==> Installing Quattro runtime to $INSTALL_DIR..."
   mkdir -p "$INSTALL_DIR"
 
+  if [[ ! -x $PROJECT_DIR/build/bin/quattro-cpp ]]; then
+    if command -v qmake6 >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+      echo "==> Building quattro-cpp C++ shell binary..."
+      make -C "$PROJECT_DIR" build
+    fi
+  fi
+
   for item in applications bin default install shell themes icon.png icon.txt logo.svg logo.txt version LICENSE; do
     if [[ -e $PROJECT_DIR/$item ]]; then
       rm -rf "$INSTALL_DIR/$item"
@@ -53,12 +60,16 @@ install_runtime() {
     fi
   done
 
+  if [[ -x $PROJECT_DIR/build/bin/quattro-cpp ]]; then
+    install -Dm755 "$PROJECT_DIR/build/bin/quattro-cpp" "$INSTALL_DIR/bin/quattro-cpp"
+  fi
+
   echo "==> Linking quattro-* commands into $BIN_LINK_DIR..."
   mkdir -p "$BIN_LINK_DIR"
   for link in "$BIN_LINK_DIR"/quattro-*; do
     [[ -L $link && ! -e $link ]] && rm -f "$link"
   done
-  for bin_file in "$PROJECT_DIR"/bin/*; do
+  for bin_file in "$INSTALL_DIR"/bin/*; do
     local name="${bin_file##*/}"
     ln -snf "$INSTALL_DIR/bin/$name" "$BIN_LINK_DIR/$name"
   done
