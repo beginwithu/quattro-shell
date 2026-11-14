@@ -3,27 +3,22 @@
 # quattro:summary=Launch the Quattro shell with its log kept in the journal
 # quattro:hidden=true
 
-# Launches the native C++ Qt6/Wayland Quattro shell binary (`quattro-cpp`) with
-# journal logging under the `quattro-shell` syslog tag.
-find_shell_bin() {
-  if [[ -x ${QUATTRO_PATH:-}/bin/quattro-cpp ]]; then
-    printf '%s\n' "$QUATTRO_PATH/bin/quattro-cpp"
-  elif command -v quattro-cpp >/dev/null 2>&1; then
-    command -v quattro-cpp
-  else
-    return 1
-  fi
-}
-
+# Quickshell only logs to its instance runtime dir (tmpfs), so when the shell
+# dies the idle/lock event trail is gone after a reboot. The journal keeps it
+# across sessions, bounded and timestamped, under the quattro-shell tag.
+#
+# Backgrounded because bash defers a trap until a foreground command returns but
+# interrupts wait. systemd-cat execs, so the job is Quickshell itself.
+#
+# Quickshell's own reloading is off; Quattro restarts the shell deliberately.
+# A package upgrade rewriting $QUATTRO_PATH/shell would otherwise reload it
+# against a half-written tree, and that failed reload leaves a second engine
+# generation behind that turns the next restart's IPC kill into a crash.
 run_shell() {
-  local shell_bin startup_background
-  shell_bin=$(find_shell_bin) || {
-    logger -t quattro-shell "quattro-cpp binary not found under QUATTRO_PATH/bin or PATH."
-    return 127
-  }
+  local startup_background
   startup_background=$(readlink -f "$HOME/.local/state/quattro/current/background" 2>/dev/null)
-  QUATTRO_STARTUP_BACKGROUND="$startup_background" \
-    systemd-cat -t quattro-shell -- "$shell_bin" &
+  QUATTRO_STARTUP_BACKGROUND="$startup_background" QS_DISABLE_FILE_WATCHER=1 QS_NO_RELOAD_POPUP=1 \
+    systemd-cat -t quattro-shell -- quickshell -n -p "$QUATTRO_PATH/shell" &
   shell_pid=$!
 
   local status

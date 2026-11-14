@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "quattro.system-update",
+  "name": "Quattro update",
+  "version": "1.0.0",
+  "author": "Quattro",
+  "description": "Indicates available Quattro updates",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "SystemUpdate.qml"
+  },
+  "barWidget": {
+    "displayName": "Quattro update",
+    "description": "Indicates available Quattro updates",
+    "category": "System",
+    "allowMultiple": false
+  }
+}

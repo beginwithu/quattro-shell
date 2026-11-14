@@ -1,0 +1,356 @@
+import QtQuick
+import Quickshell
+import Quickshell.Io
+import Quickshell.Wayland
+import qs.Commons
+import "AppSearch.js" as AppSearch
+
+// Shared desktop-application library: the sorted entry list with hidden-entry
+// filtering, the icon fallback index, launch feedback, and entry removal.
+// Injected as shell.appLibrary; the menu's Apps submenu is the consumer.
+Item {
+  id: root
+
+  property string quattroPath: Quickshell.env("QUATTRO_PATH")
+
+  property var configuredHiddenEntryIds: ({})
+  property var desktopHiddenEntryIds: ({})
+
+  // Maps an icon name to a file on disk (e.g. "omacut" -> ".../apps/omacut.svg").
+  // Used as a fallback for icons that Qt's themed lookup misses because they were
+  // installed after this process started (its icon cache never re-scans). Refreshed
+  // whenever the app list changes, so newly installed apps get their icon live.
+  property var iconIndex: ({})
+  property var pendingIconIndex: ({})
+  property bool iconIndexReady: false
+  property bool iconRescanQueued: false
+
+  // Quattro's own app icons are linked into the user's icon dir and redrawn in
+  // place after each theme switch, which then writes icons.revision. The
+  // revision goes on their URLs to make images reload instead of showing the
+  // cached previous theme, and the rescan picks up links created for the first
+  // time.
+  readonly property string home: Quickshell.env("HOME")
+  readonly property string userIconsPath: (Quickshell.env("XDG_DATA_HOME") || home + "/.local/share") + "/icons/"
+  property int themeRevision: 0
+
+  // Maps a desktop id to the version of the package that owns it. Rescanned
+  // each time the app grid opens, since upgrades leave desktop entries alone.
+  property var versions: ({})
+  property var pendingVersions: ({})
+
+  property int launchSerial: 0
+  property int launchToplevelCount: 0
+  property var launchActiveToplevel: null
+  // True while the launch OSD is on screen. It outlives the launch that opened
+  // it: the OSD shows with duration 0, so only closeLaunchFeedback() takes it
+  // down.
+  property bool launchOsdOpen: false
+  property string launchOsdMessage: ""
+
+  // Emitted whenever the visible application set may have changed: desktop
+  // entries appeared or vanished, or the hidden-entry filters reloaded.
+  signal appsChanged()
+
+  function entryName(entry) {
+    return AppSearch.entryName(entry)
+  }
+
+  function entrySubtext(entry) {
+    return AppSearch.entrySubtext(entry)
+  }
+
+  function hasResolvedIcon(entry) {
+    var value = String((entry && entry.icon) || "").trim()
+    if (value.length === 0) return false
+    if (value.indexOf("file://") === 0 || value.indexOf("image://") === 0 || value.charAt(0) === "/") return true
+    var base = value.replace(/\.(png|svg|xpm)$/i, "")
+    if (root.iconIndex[value] || (base && root.iconIndex[base])) return true
+    return Quickshell.iconPath(value, true).length > 0
+  }
+
+  function isHiddenEntry(entry) {
+    var id = String((entry && entry.id) || "")
+    if (root.configuredHiddenEntryIds[id] === true || root.desktopHiddenEntryIds[id] === true) return true
+    return root.iconIndexReady && !root.hasResolvedIcon(entry)
+  }
+
+  function sortedEntries(query) {
+    var values = DesktopEntries.applications.values || []
+    return AppSearch.sortedEntries(values, query, function(entry) { return root.isHiddenEntry(entry) })
+  }
+
+  function iconSource(icon) {
+    var value = String(icon || "")
+    if (value.length === 0) return Quickshell.iconPath("application-x-executable", true)
+    if (value.indexOf("file://") === 0 || value.indexOf("image://") === 0) return value
+    if (value.charAt(0) === "/") return Util.fileUrl(value)
+    // Prefer the context-limited app/device index. An unconstrained themed
+    // lookup can resolve an app name such as "zoom" to an action icon instead.
+    var base = value.replace(/\.(png|svg|xpm)$/i, "")
+    var found = root.iconIndex[value] || (base ? root.iconIndex[base] : undefined)
+    var revision = root.themeRevision
+    if (found) return Util.fileUrl(found) + (found.indexOf(root.userIconsPath) === 0 ? "?theme=" + revision : "")
+    var themed = Quickshell.iconPath(value, true)
+    if (themed.length > 0) return themed
+    return Quickshell.iconPath("application-x-executable", true)
+  }
+
+  // The shell may start before first-install packages have finished placing
+  // their icons; consumers call this when they open so icons appear live.
+  // A request during a scan queues one more, since the running scan may have
+  // listed icons before they changed.
+  function refreshIcons() {
+    if (iconIndexScan.running) root.iconRescanQueued = true
+    else iconIndexScan.running = true
+  }
+
+  function refreshVersions() {
+    if (!versionScan.running) versionScan.running = true
+  }
+
+  function version(entry) {
+    return String(root.versions[String((entry && entry.id) || "")] || "")
+  }
+
+  function launch(desktopId, name) {
+    var id = String(desktopId || "")
+    if (!id) return
+    root.beginLaunchFeedback(name)
+    // A terminal app goes through Quattro's TUI launcher, which names its
+    // terminal window after the command (org.quattro.nvim), so the dock and
+    // titlebars can tell Neovim from the terminal it runs in.
+    var command = root.terminalCommand(DesktopEntries.byId(id))
+    if (command.length > 0) {
+      Util.execDetached("quattro-launch-tui " + command.map(function(word) { return Util.shellQuote(word) }).join(" "))
+      return
+    }
+    // Start gtk-launch inside a scope under app-graphical.slice so apps do not
+    // inherit wayland-wm@.service. Keeping gtk-launch as the desktop-entry
+    // resolver supports IDs with spaces and entries that UWSM rejects.
+    // Keep the .desktop suffix or ids like org.telegram.desktop won't resolve.
+    Util.execDetached("uwsm-app -- gtk-launch " + Util.shellQuote(id + ".desktop"))
+  }
+
+  // The command a terminal entry runs, without the field codes it leaves for a
+  // launcher to fill in; empty for an entry that is not run in a terminal.
+  function terminalCommand(entry) {
+    if (!entry || !entry.runInTerminal) return []
+    return (entry.command || []).filter(function(word) { return !/^%[a-zA-Z]$/.test(String(word)) })
+  }
+
+  function remove(desktopId, name) {
+    var id = String(desktopId || "")
+    if (!id) return
+    Util.execDetached(Util.shellQuote(root.quattroPath + "/bin/quattro-remove-launcher-entry") + " " + Util.shellQuote(id) + " " + Util.shellQuote(String(name || id)))
+  }
+
+  function normalizeDesktopId(id) {
+    var value = String(id || "").trim()
+    if (value.slice(-8) === ".desktop") value = value.slice(0, -8)
+    return value
+  }
+
+  function loadConfiguredHides(rawText) {
+    var next = ({})
+    var lines = String(rawText || "").split(/\n/)
+    for (var i = 0; i < lines.length; i++) {
+      var id = root.normalizeDesktopId(lines[i])
+      if (id.length > 0) next[id] = true
+    }
+    root.configuredHiddenEntryIds = next
+    root.appsChanged()
+  }
+
+  function loadDesktopHiddenEntries(rawText) {
+    var next = ({})
+    var lines = String(rawText || "").split(/\n/)
+    for (var i = 0; i < lines.length; i++) {
+      var id = root.normalizeDesktopId(lines[i])
+      if (id.length > 0) next[id] = true
+    }
+    root.desktopHiddenEntryIds = next
+    root.appsChanged()
+  }
+
+  function iconIndexScanCommand() {
+    // List app/device icons across the XDG icon dirs and /usr/share/pixmaps as
+    // "<path>" lines. Some desktop entries, such as Print Settings, use device
+    // icons like "printer" instead of app icons. SVGs are emitted before PNGs
+    // so the parser, which keeps the first hit per name, prefers scalable icons.
+    // Within each icon dir, PNGs go largest size first, so a 256x256 beats a 32x32.
+    return [
+      'dirs="$HOME/.icons ${XDG_DATA_HOME:-$HOME/.local/share}/icons";',
+      'IFS=":"; for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"; done; unset IFS;',
+      '{',
+      '  for base in $dirs; do',
+      '    [[ -d $base ]] && find "$base" \\( -path "*/apps/*" -o -path "*/devices/*" \\) \\( -name "*.svg" -o -name "*.png" \\) 2>/dev/null;',
+      '    echo;',
+      '  done;',
+      '  find /usr/share/pixmaps -maxdepth 1 \\( -name "*.svg" -o -name "*.png" \\) 2>/dev/null;',
+      '} | awk -v OFS="\\t" \'!length { dir++; next } /\\.svg$/ { print 0, 0, 0, $0; next } { print 1, dir, (match($0, /\\/[0-9]+x[0-9]+[@\\/]/) ? substr($0, RSTART + 1) + 0 : 0), $0 }\'',
+      '  | sort -s -t $\'\\t\' -k1,1n -k2,2n -k3,3nr | cut -f 4-'
+    ].join(' ')
+  }
+
+  function indexIconLine(path) {
+    var value = String(path || "").trim()
+    if (value.length === 0) return
+    var slash = value.lastIndexOf("/")
+    var file = slash >= 0 ? value.slice(slash + 1) : value
+    var dot = file.lastIndexOf(".")
+    var name = dot > 0 ? file.slice(0, dot) : file
+    if (name.length > 0 && root.pendingIconIndex[name] === undefined)
+      root.pendingIconIndex[name] = value
+  }
+
+  function hiddenEntryScanCommand() {
+    var desktop = [Quickshell.env("XDG_CURRENT_DESKTOP"), Quickshell.env("XDG_SESSION_DESKTOP"), Quickshell.env("DESKTOP_SESSION")].filter(function(v) { return String(v || "").length > 0 }).join(":")
+    var script = root.quattroPath + "/shell/services/hidden-entries.sh"
+    return Util.shellQuote(script) + " " + Util.shellQuote(desktop)
+  }
+
+  function toplevelCount() {
+    try { return ToplevelManager.toplevels.values.length } catch (e) { return 0 }
+  }
+
+  function beginLaunchFeedback(name) {
+    root.launchSerial++
+    root.launchToplevelCount = root.toplevelCount()
+    root.launchActiveToplevel = ToplevelManager.activeToplevel
+    root.launchOsdMessage = name ? I18n.t("appLibrary.launching").arg(String(name)) : I18n.t("appLibrary.launchingApp")
+    launchDelay.restart()
+    launchTimeout.restart()
+  }
+
+  function closeLaunchFeedback(serial) {
+    if (serial !== root.launchSerial) return
+    launchDelay.stop()
+    launchTimeout.stop()
+    if (root.launchOsdOpen) {
+      Quickshell.execDetached(["quattro-shell", "osd", "close"])
+      root.launchOsdOpen = false
+    }
+  }
+
+  function maybeFinishLaunchFeedback() {
+    if (!launchDelay.running && !launchTimeout.running && !root.launchOsdOpen) return
+    if (root.toplevelCount() <= root.launchToplevelCount && ToplevelManager.activeToplevel === root.launchActiveToplevel) return
+    root.closeLaunchFeedback(root.launchSerial)
+  }
+
+  QtObject {
+    id: hiddenEntryOutput
+    property string text: ""
+  }
+
+  // Both scans must run in non-login shells. A login shell sources the user's
+  // profile, and tools like mise touch ~/.local/share on activation — a
+  // directory the desktop-entry watcher monitors — so every scan would
+  // trigger the next one, pinning a core at idle.
+  Process {
+    id: hiddenEntryScan
+    command: ["bash", "-c", root.hiddenEntryScanCommand()]
+    stdout: SplitParser { onRead: function(line) { hiddenEntryOutput.text += line + "\n" } }
+    onStarted: hiddenEntryOutput.text = ""
+    onExited: root.loadDesktopHiddenEntries(hiddenEntryOutput.text)
+  }
+
+  Process {
+    id: iconIndexScan
+    command: ["bash", "-c", root.iconIndexScanCommand()]
+    stdout: SplitParser { onRead: function(line) { root.indexIconLine(line) } }
+    onStarted: root.pendingIconIndex = ({})
+    // Swapping the property re-evaluates every iconSource() binding, so
+    // newly found icons appear without rebuilding the list.
+    onExited: {
+      root.iconIndex = root.pendingIconIndex
+      root.iconIndexReady = true
+      root.appsChanged()
+      if (root.iconRescanQueued) {
+        root.iconRescanQueued = false
+        running = true
+      }
+    }
+  }
+
+  Process {
+    id: versionScan
+    command: [root.quattroPath + "/bin/quattro-launch-versions"]
+    stdout: SplitParser {
+      onRead: function(line) {
+        var tab = line.indexOf("\t")
+        if (tab > 0) root.pendingVersions[line.slice(0, tab)] = line.slice(tab + 1)
+      }
+    }
+    onStarted: root.pendingVersions = ({})
+    onExited: root.versions = root.pendingVersions
+  }
+
+  // Coalesces bursts of app-list changes (a package install touches many
+  // entries) into a single rescan.
+  Timer {
+    id: iconIndexDebounce
+    interval: 750
+    onTriggered: if (!iconIndexScan.running) iconIndexScan.running = true
+  }
+
+  FileView {
+    path: root.home + "/.local/state/quattro/current/icons.revision"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: {
+      root.themeRevision++
+      root.refreshIcons()
+    }
+  }
+
+  FileView {
+    path: root.quattroPath + "/default/quattro/launcher.hides"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.loadConfiguredHides(text())
+    onFileChanged: root.loadConfiguredHides(text())
+    onLoadFailed: root.loadConfiguredHides("")
+  }
+
+  Connections {
+    target: ToplevelManager.toplevels
+    function onValuesChanged() { root.maybeFinishLaunchFeedback() }
+  }
+
+  Connections {
+    target: ToplevelManager
+    function onActiveToplevelChanged() { root.maybeFinishLaunchFeedback() }
+  }
+
+  Timer {
+    id: launchDelay
+    interval: 2000
+    onTriggered: {
+      if (root.toplevelCount() > root.launchToplevelCount || ToplevelManager.activeToplevel !== root.launchActiveToplevel) return
+      root.launchOsdOpen = true
+      Quickshell.execDetached(["quattro-shell", "osd", "show", JSON.stringify({ icon: "󱓞", message: root.launchOsdMessage, duration: 0 })])
+    }
+  }
+
+  Timer {
+    id: launchTimeout
+    interval: 15000
+    onTriggered: root.closeLaunchFeedback(root.launchSerial)
+  }
+
+  Connections {
+    target: DesktopEntries.applications
+    function onValuesChanged() {
+      hiddenEntryScan.running = true
+      iconIndexDebounce.restart()
+      root.appsChanged()
+    }
+  }
+
+  Component.onCompleted: {
+    hiddenEntryScan.running = true
+    iconIndexScan.running = true
+  }
+}

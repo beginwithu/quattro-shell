@@ -6,9 +6,7 @@ hyprland
 hyprland-guiutils
 hyprpicker
 hyprsunset
-libpulse
-pam
-polkit
+quickshell
 sddm
 uwsm
 xdg-desktop-portal-gtk

@@ -38,7 +38,7 @@ fi
 
 (( $# >= 2 )) || fail "Usage: quattro-shell <target> <method> [args...]"
 [[ -n ${QUATTRO_PATH:-} ]] || fail "QUATTRO_PATH is not set"
-[[ -d $QUATTRO_PATH ]] || fail "quattro-shell runtime not found: $QUATTRO_PATH"
+[[ -f $QUATTRO_PATH/shell/shell.qml ]] || fail "quattro-shell config not found: $QUATTRO_PATH/shell/shell.qml"
 
 # qs matches instances by display, and a caller from outside the session (an
 # ssh or TTY quattro-restart-shell, and the migrations it runs for) has none,
@@ -71,32 +71,63 @@ fi
 socket_id=$(printf '%s\n%s' "$QUATTRO_PATH/shell" "${WAYLAND_DISPLAY:-}" | md5sum)
 socket="${XDG_RUNTIME_DIR:-/run/user/$UID}/quattro-shell-${socket_id:0:16}.sock"
 request="$*"
-# Direct UNIX-socket IPC served natively by quattro-cpp.
-[[ -S $socket ]] || fail "quattro-shell is not running"
-command -v socat >/dev/null 2>&1 || fail "quattro-shell requires socat for IPC"
+if [[ -S $socket && $request != *$'\x1e'* && $request != *$'\x1f'* ]]; then
+  saved_ifs=$IFS
+  IFS=$'\x1f'
+  request="$*"
+  IFS=$saved_ifs
+  # socat waits as long as the shell takes; the timeout alone bounds the call.
+  # Its own errors land in the reply too, so a connection it could not make
+  # is told apart from one that failed after the request went out.
+  reply=$(printf '%s\x1e' "$request" | timeout --kill-after=1s "${QUATTRO_SHELL_IPC_TIMEOUT:-2s}" socat -t 86400 - "UNIX-CONNECT:$socket" 2>&1)
 
-saved_ifs=$IFS
-IFS=$'\x1f'
-request="$*"
-IFS=$saved_ifs
-reply=$(printf '%s\x1e' "$request" | timeout --kill-after=1s "${QUATTRO_SHELL_IPC_TIMEOUT:-2s}" socat -t 86400 - "UNIX-CONNECT:$socket" 2>&1)
-
-if [[ $reply == OK$'\x1f'*$'\x1e'* ]]; then
-  output=${reply#OK$'\x1f'}
-  output=${output%$'\x1e'*}
-  while [[ $output == *$'\n' ]]; do output=${output%$'\n'}; done
-  if (( !QUIET )) && [[ -n $output ]]; then
-    echo "$output"
+  # An answer counts only once its record separator arrived: a reply cut off
+  # partway must not pass for the whole of it.
+  if [[ $reply == OK$'\x1f'*$'\x1e'* ]]; then
+    output=${reply#OK$'\x1f'}
+    output=${output%$'\x1e'*}
+    # Match qs ipc's path, whose $(...) drops trailing newlines.
+    while [[ $output == *$'\n' ]]; do output=${output%$'\n'}; done
+    if (( !QUIET )) && [[ -n $output ]]; then
+      echo "$output"
+    fi
+    exit 0
+  elif [[ $reply == "SKIP"$'\x1e'* ]]; then
+    : # The shell ran nothing; qs ipc gives its exact answer below.
+  elif [[ $reply != OK* && $reply == *" E connect("* ]]; then
+    : # socat never connected, a stale socket; qs ipc answers below.
+  else
+    # Out of time, cut off, or failed after the request went out: the call
+    # may have run, so it is reported rather than retried.
+    fail "quattro-shell is not responding"
   fi
-  exit 0
-elif [[ $reply == ERROR$'\x1f'*$'\x1e'* ]]; then
-  err=${reply#ERROR$'\x1f'}
-  err=${err%$'\x1e'*}
-  fail "${err:-quattro-shell IPC call failed}"
-elif [[ $reply == "SKIP"$'\x1e'* ]]; then
-  fail "Target or method not found: $1 $2"
-elif [[ $reply != OK* && ( $reply == *" E connect("* || $reply == *"Connection refused"* || $reply == *"No such file or directory"* ) ]]; then
-  fail "quattro-shell is not running"
-else
-  fail "quattro-shell is not responding"
 fi
+
+# The -- keeps function names that shadow qs subcommands (e.g. show) as
+# positionals. qs reports connection failures with a nonzero exit, but IPC-level
+# failures (unknown target/function, bad arguments) go to stdout with exit 0.
+ipc_timeout=${QUATTRO_SHELL_IPC_TIMEOUT:-2s}
+output=$(timeout --kill-after=1s "$ipc_timeout" qs ipc -n -p "$QUATTRO_PATH/shell" call -- "$@" 2>/dev/null)
+ipc_status=$?
+
+if (( ipc_status == 124 || ipc_status == 137 )); then
+  fail "quattro-shell is not responding"
+elif (( ipc_status != 0 )); then
+  fail "quattro-shell is not running"
+fi
+
+case $output in
+  "Target not found." | "Function not found." | "Too few arguments provided"* | "Too many arguments provided"*)
+    fail "$output"
+    ;;
+  # A starting shell answers on stdout and exits 0, so a ping reads it as up
+  # and the next call's answer as a result. It is as unreachable as none.
+  "Not ready to accept queries yet"*)
+    fail "quattro-shell is not ready"
+    ;;
+esac
+
+if (( !QUIET )) && [[ -n $output ]]; then
+  echo "$output"
+fi
+exit 0
