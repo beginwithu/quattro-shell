@@ -96,9 +96,9 @@ install_user_configs() {
     fi
   done
 
-  # Enable hyprland-preview-share-picker automatically if installed
-  if command -v hyprland-preview-share-picker >/dev/null 2>&1 && [[ -f $HOME/.config/hypr/xdph.conf ]]; then
-    sed -i 's|^    # custom_picker_binary = hyprland-preview-share-picker|    custom_picker_binary = hyprland-preview-share-picker|' "$HOME/.config/hypr/xdph.conf"
+  # Keep custom_picker_binary pointed at quattro-share-picker unless user overrides it
+  if [[ -f $HOME/.config/hypr/xdph.conf ]] && grep -q '^    # custom_picker_binary = hyprland-preview-share-picker' "$HOME/.config/hypr/xdph.conf"; then
+    sed -i 's|^    # custom_picker_binary = hyprland-preview-share-picker|    custom_picker_binary = quattro-share-picker|' "$HOME/.config/hypr/xdph.conf"
   fi
 
   # Seed ~/.bashrc

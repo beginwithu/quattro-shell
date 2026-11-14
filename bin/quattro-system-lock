@@ -35,6 +35,8 @@ if pgrep -x "1password" >/dev/null && quattro-cmd-present 1password; then
 fi
 
 # Avoid running screensaver when locked
+quattro-shell -q shell hide quattro.screensaver >/dev/null 2>&1 || true
+pkill -f 'quickshell -p .*/shell/screensaver\.qml' >/dev/null 2>&1 || true
 screensaver='[/]usr/lib/quattro-screensaver/quattro-screensaver'
 if pkill -f "$screensaver" 2>/dev/null; then
   timeout 1s pidwait -f "$screensaver" 2>/dev/null || pkill -KILL -f "$screensaver" 2>/dev/null || true

@@ -44,6 +44,6 @@ uwsm start hyprland.desktop
 
 - `QUATTRO_PATH` resolves `~/.local/share/quattro` before `/usr/share/quattro`, so user-only installs work without root.
 - Custom distro packages (`nvim`, `mise-bin`, `ttf-jetbrains-mono-nerd-basic`, `omarchy-power-profiles-daemon`, `vi`) are mapped to Arch repo names; see [packages/package-map.md](packages/package-map.md).
-- Custom apps (`folio`, `omasnap`, `omacalc`, `omawrite`, `cliamp`, `qtengine`, `omarchy-screensaver`, `hyprland-preview-share-picker`) fall back to standard Arch tools (`nautilus`, `grim`+`slurp`, `qalculate-gtk`/`kcalc`, `libreoffice`, `cmus`/`ncmpcpp`, `qt6ct`, `hyprland-guiutils`) when absent.
+- Custom apps (`folio`, `omasnap`, `omacalc`, `omawrite`, `cliamp`, `qtengine`, `omarchy-screensaver`, `hyprland-preview-share-picker`) fall back to standard Arch tools or built-in Quattro components (`nautilus`, `grim`+`slurp`, `qalculate-gtk`/`kcalc`, `libreoffice`, `cmus`/`ncmpcpp`, `qt6ct`, `quattro.screensaver`, `quattro-share-picker`).
 - Bootloader and ISO-specific configs (`limine`, `mkinitcpio`, `snapper`) are left out so existing Arch installs are untouched.
 - Existing terminal configs (`kitty.conf` defaults) and browser flag files (`chrome-flags.conf`, `chromium-flags.conf`) are self-contained under `$HOME`.

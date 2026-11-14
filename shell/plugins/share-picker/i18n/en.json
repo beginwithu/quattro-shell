@@ -1,0 +1,25 @@
+{
+  "title": "Select what to share",
+  "subtitle": "Choose a monitor, window, workspace, or region to share.",
+  "tab.monitors": "Monitors",
+  "tab.windows": "Windows",
+  "tab.workspaces": "Workspaces",
+  "tab.region": "Region",
+  "filter.placeholder": "Filter windows...",
+  "empty.monitors": "No shareable monitors are available.",
+  "empty.windows": "No shareable windows are available.",
+  "empty.workspaces": "No shareable workspaces are available.",
+  "preview.unavailable": "Preview unavailable",
+  "preview.emptyWorkspace": "Empty workspace",
+  "region.heading": "Select a custom screen area",
+  "region.description": "The picker hides briefly while you drag a rectangle across any monitor.",
+  "region.button": "Select region",
+  "remember": "Remember this choice for future requests",
+  "cancel": "Cancel",
+  "share": "Share",
+  "workspace.label": "Workspace %1",
+  "workspace.windows": {
+    "one": "%1 window",
+    "other": "%1 windows"
+  }
+}

@@ -135,7 +135,10 @@ Item {
 
   function userReturned() {
     // Input the screensaver never sees (a bound media key, a touchscreen) still means the user is back.
-    if (root.screensaverStartedThisCycle) screensaverStopProcess.running = true
+    if (root.screensaverStartedThisCycle) {
+      if (root.shell && typeof root.shell.hide === "function") root.shell.hide("quattro.screensaver")
+      screensaverStopProcess.running = true
+    }
     cancelIdleCycle("activity")
   }
 
@@ -269,7 +272,7 @@ Item {
   }
   Process {
     id: screensaverStopProcess
-    command: ["pkill", "-f", "[/]usr/lib/quattro-screensaver/quattro-screensaver"]
+    command: ["bash", "-c", "quattro-launch-screensaver stop"]
   }
   Process {
     id: lockProcess

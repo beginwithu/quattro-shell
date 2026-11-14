@@ -1,17 +1,43 @@
 #!/bin/bash
 
 # quattro:summary=Launch the Quattro screensaver on every display.
-# quattro:args=[force] [options]
+# quattro:args=[force|stop] [options]
+
+if [[ ${1:-} == "stop" || ${1:-} == "--stop" ]]; then
+  quattro-shell -q shell hide quattro.screensaver >/dev/null 2>&1 || true
+  pkill -f 'quickshell -p .*/shell/screensaver\.qml' >/dev/null 2>&1 || true
+  pkill -f '[/]usr/lib/omarchy-screensaver/omarchy-screensaver' >/dev/null 2>&1 || true
+  pkill -f '[/]usr/lib/quattro-screensaver/quattro-screensaver' >/dev/null 2>&1 || true
+  exit 0
+fi
+
+force=0
+if [[ ${1:-} == "force" ]]; then
+  force=1
+fi
+
+if (( !force )); then
+  if command -v quattro-toggle-enabled >/dev/null 2>&1 && quattro-toggle-enabled screensaver-off; then
+    exit 0
+  fi
+  if [[ $(quattro-shell -q lock isLocked 2>/dev/null || true) == "true" ]]; then
+    exit 0
+  fi
+fi
 
 if [[ -x /usr/lib/omarchy-screensaver/omarchy-screensaver ]]; then
   exec /usr/lib/omarchy-screensaver/omarchy-screensaver "$@"
 fi
 
-# Fallback when Quattro's proprietary screensaver binary isn't installed on standard Arch:
-# only lock/blank when forced or invoked directly, otherwise exit cleanly.
-if [[ ${1:-} == "force" ]]; then
-  if command -v quattro-system-lock >/dev/null 2>&1; then
-    exec quattro-system-lock
-  fi
+if quattro-shell shell summon quattro.screensaver '{}' >/dev/null 2>&1; then
+  exit 0
 fi
+
+QUATTRO_PATH="${QUATTRO_PATH:-$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)}"
+export QUATTRO_PATH
+if command -v quickshell >/dev/null 2>&1 && [[ -f $QUATTRO_PATH/shell/screensaver.qml ]]; then
+  quickshell -p "$QUATTRO_PATH/shell/screensaver.qml" >/dev/null 2>&1 &
+  exit 0
+fi
+
 exit 0

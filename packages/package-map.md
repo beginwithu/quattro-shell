@@ -16,9 +16,9 @@ Custom Omarchy packages and how they are handled on standard Arch Linux:
 | `cliamp` | Removed (optional) | Not installed by default |
 | `herdr` | Removed (uses `tmux` from `extra`) | `SUPER + ALT + RETURN` opens `tmux` |
 | `qtengine` | `qt6ct` (`extra`) | `default/hypr/envs.lua` sets `QT_QPA_PLATFORMTHEME` dynamically |
-| `hyprland-preview-share-picker` | `hyprland-guiutils` (`extra`) | `config/hypr/xdph.conf` leaves `custom_picker_binary` commented so `xdph` uses Arch's built-in picker |
+| `hyprland-preview-share-picker` | Built-in `quattro-share-picker` (`quickshell` + `slurp`) | `config/hypr/xdph.conf` sets `custom_picker_binary = quattro-share-picker` for live screen/window/workspace previews (`quattro.share-picker` overlay) |
 | `omarchy-hyprland-titlebars` | Optional | `default/hypr/workspace-modes.lua` checks `io.open(TITLEBARS)` before loading |
-| `omarchy-screensaver` | Optional | `bin/quattro-launch-screensaver` exits cleanly or locks if `force` |
+| `omarchy-screensaver` | Built-in `quattro.screensaver` (`quickshell`) | `bin/quattro-launch-screensaver` launches the built-in animated ASCII branding screensaver (`quattro.screensaver`) |
 | `owe` | Optional | Quickshell `BackgroundService` handles still images directly without `owe` |
 | `omarchy-nvim` | `neovim` (`extra`) | User Neovim config / LazyVim works independently |
 | `ttf-ia-writer` | Optional (`noto-fonts` / `adwaita-fonts` included) | Available manually or via AUR if desired |

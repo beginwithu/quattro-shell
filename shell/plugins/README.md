@@ -15,6 +15,8 @@ User-installed plugins live alongside these conceptually but on disk under
 |---------------|---------------------------|-------------------------|---------------------------------------|
 | Bar           | `quattro.bar`             | `bar`                   | `bar/Bar.qml`                         |
 | Image picker  | `quattro.image-picker`    | `overlay`               | `image-picker/ImagePicker.qml`        |
+| Share picker  | `quattro.share-picker`    | `overlay`               | `share-picker/SharePicker.qml`        |
+| Screensaver   | `quattro.screensaver`     | `overlay`               | `screensaver/Screensaver.qml`         |
 | Emojis        | `quattro.emojis`          | `overlay`               | `emojis/Emojis.qml`                   |
 | Clipboard mgr | `quattro.clipboard`       | `overlay`               | `clipboard/Clipboard.qml`             |
 | Reminders     | `quattro.reminders`       | `overlay`               | `reminders/ReminderFlow.qml`          |

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "quattro.screensaver",
+  "name": "Screensaver",
+  "version": "1.0.0",
+  "author": "Quattro",
+  "description": "Animated theme-aware ASCII branding screensaver across every display.",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Screensaver.qml"
+  }
+}

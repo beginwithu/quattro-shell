@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "quattro.share-picker",
+  "name": "Share picker",
+  "version": "1.0.0",
+  "author": "Quattro",
+  "description": "Screen, window, workspace, and region share picker with live previews for xdg-desktop-portal-hyprland.",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "SharePicker.qml"
+  }
+}

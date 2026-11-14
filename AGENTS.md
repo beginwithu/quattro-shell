@@ -11,7 +11,7 @@ Notes for working on `quattro-shell` and the rest of this repository.
 - `shell/services/` - host-level QML/JS services (`PluginRegistry.qml`, `BarWidgetRegistry.qml`, `AppLibrary.qml`, `BackgroundIntro.qml`, `BackgroundSwitch.qml`, `BrightnessKeys.qml`, plus capability-scoped plugin facades `Plugin*Api.qml`).
 - `shell/plugins/` - first-party plugins loaded from `manifest.json`:
   - `bar/` (`quattro.bar`) and `bar/widgets/` / `bar/indicators/`
-  - `dock/`, `menu/`, `osd/`, `lock/`, `notifications/`, `background/`, `clipboard/`, `dev-gallery/`, `emojis/`, `image-picker/`, `polkit/`, `reminders/`
+  - `dock/`, `menu/`, `osd/`, `lock/`, `notifications/`, `background/`, `clipboard/`, `dev-gallery/`, `emojis/`, `image-picker/`, `polkit/`, `reminders/`, `screensaver/`, `share-picker/`
   - `panels/` (`audio`, `bluetooth`, `clock`, `disk-speedtest`, `dropbox`, `elsewhen`, `monitor`, `network`, `power`, `speedtest`, `tailscale`, `weather`, `wifiqr`)
   - `services/` (`battery`, `idle`, `media`, `nightlight`, `remote-session`)
 - `config/quattro/shell.json` - default shell layout (`bar`, `dock`, `idle`, `plugins`). User overrides live at `~/.config/quattro/shell.json` (canonical once created; no deep-merge).

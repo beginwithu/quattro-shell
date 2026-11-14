@@ -9,7 +9,7 @@ hl.layer_rule({ match = { namespace = "quattro-bar" }, no_anim = true, animation
 -- animations. Overlays open as soon as their scale is ready, without a
 -- compositor fade or slide. Panels keep their own QML opacity transition
 -- for normal open/close, and skip it for panel handoff.
-hl.layer_rule({ match = { namespace = "^(quattro-menu|quattro-image-selector|quattro-emojis|quattro-clipboard|quattro-keyboard-panel|quattro-osd|quattro-reminders|quattro-network-qr|quattro-dock|quattro-dock-apps)$" }, no_anim = true, animation = "none" })
+hl.layer_rule({ match = { namespace = "^(quattro-menu|quattro-image-selector|quattro-emojis|quattro-clipboard|quattro-keyboard-panel|quattro-osd|quattro-reminders|quattro-network-qr|quattro-dock|quattro-dock-apps|quattro-share-picker|org\\.quattro\\.screensaver)$" }, no_anim = true, animation = "none" })
 
 -- A boot intro hands the desktop between OWE's video layer and the shell's
 -- background layer. The media fades itself, so a compositor fade on either
